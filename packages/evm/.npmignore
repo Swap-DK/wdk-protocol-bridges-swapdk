@@ -1,0 +1,15 @@
+src/
+tests/
+scripts/
+examples/
+coverage/
+.claude/
+.gitlab-ci.yml
+.editorconfig
+.env
+.env.*
+!.env.example
+tsconfig.json
+vitest.config.*
+CLAUDE.md
+CHANGELOG.md

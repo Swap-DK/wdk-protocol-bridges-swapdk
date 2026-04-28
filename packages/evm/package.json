@@ -1,0 +1,62 @@
+{
+  "name": "@swapdk/wdk-protocol-bridge-swapdk-evm",
+  "version": "1.0.0",
+  "description": "WDK bridge and swap protocol module for cross-chain and same-chain swaps via SwapDK (THORChain, MAYAChain, Chainflip)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "build": "tsc -b",
+    "prepack": "npm run clean && npm run build",
+    "dev": "tsc -b --watch",
+    "lint": "tsc -b --dry"
+  },
+  "keywords": [
+    "wdk",
+    "tether",
+    "swapdk",
+    "bridge",
+    "cross-chain",
+    "swap",
+    "same-chain",
+    "evm",
+    "thorchain",
+    "mayachain",
+    "chainflip"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Swap-DK/wdk-protocol-bridges-swapdk.git",
+    "directory": "packages/evm"
+  },
+  "author": "SwapDK",
+  "bugs": {
+    "url": "https://github.com/Swap-DK/wdk-protocol-bridges-swapdk/issues"
+  },
+  "homepage": "https://swapdk.com",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@swapdk/wdk-protocol-bridge-swapdk-common": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@tetherto/wdk-wallet": "^1.0.0-beta.7"
+  },
+  "devDependencies": {
+    "@tetherto/wdk": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet-evm": "^1.0.0-beta.11"
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "@swapdk/wdk-protocol-bridge-swapdk-common",
+  "version": "0.1.0",
+  "description": "Shared infrastructure for the SwapDK WDK protocol bridge family — HTTP client, error types, route selection, asset utilities, token registry. Not intended to be consumed directly; bridge-specific packages re-export what their users need.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "build": "tsc -b",
+    "prepack": "npm run clean && npm run build",
+    "dev": "tsc -b --watch",
+    "lint": "tsc -b --dry"
+  },
+  "keywords": [
+    "wdk",
+    "tether",
+    "swapdk",
+    "internal"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Swap-DK/wdk-protocol-bridges-swapdk.git",
+    "directory": "packages/common"
+  },
+  "author": "SwapDK",
+  "bugs": {
+    "url": "https://github.com/Swap-DK/wdk-protocol-bridges-swapdk/issues"
+  },
+  "homepage": "https://swapdk.com",
+  "engines": {
+    "node": ">=18"
+  }
+}

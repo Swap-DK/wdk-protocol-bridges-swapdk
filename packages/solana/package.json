@@ -1,0 +1,68 @@
+{
+  "name": "@swapdk/wdk-protocol-bridge-swapdk-solana",
+  "version": "0.1.0",
+  "description": "WDK bridge protocol module for cross-chain swaps with Solana as source chain via SwapDK (THORChain, MAYAChain, Chainflip)",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "build": "tsc -b",
+    "prepack": "npm run clean && npm run build",
+    "dev": "tsc -b --watch",
+    "lint": "tsc -b --dry"
+  },
+  "keywords": [
+    "wdk",
+    "tether",
+    "swapdk",
+    "bridge",
+    "cross-chain",
+    "solana",
+    "sol",
+    "spl",
+    "thorchain",
+    "mayachain",
+    "chainflip"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Swap-DK/wdk-protocol-bridges-swapdk.git",
+    "directory": "packages/solana"
+  },
+  "author": "SwapDK",
+  "bugs": {
+    "url": "https://github.com/Swap-DK/wdk-protocol-bridges-swapdk/issues"
+  },
+  "homepage": "https://swapdk.com",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@solana-program/memo": "^0.11.0",
+    "@solana-program/system": "^0.12.0",
+    "@solana/addresses": "^6.8.0",
+    "@solana/signers": "^6.8.0",
+    "@solana/transaction-messages": "^6.8.0",
+    "@swapdk/wdk-protocol-bridge-swapdk-common": "^0.1.0"
+  },
+  "peerDependencies": {
+    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet-solana": "^1.0.0-beta.7"
+  },
+  "devDependencies": {
+    "@tetherto/wdk": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet-solana": "^1.0.0-beta.7"
+  }
+}
