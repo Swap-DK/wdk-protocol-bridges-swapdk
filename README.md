@@ -11,6 +11,7 @@ Each package under `packages/` is published to npm independently, with shared in
 | [`@swapdk/wdk-protocol-bridge-swapdk-common`](./packages/common) | — (shared infra) | Internal |
 | [`@swapdk/wdk-protocol-bridge-swapdk-evm`](./packages/evm) | Ethereum, Arbitrum, Base, BSC, Avalanche, Optimism, Polygon | v1.0 |
 | [`@swapdk/wdk-protocol-bridge-swapdk-solana`](./packages/solana) | Solana (native SOL) | v0.1 |
+| [`@swapdk/wdk-protocol-bridge-swapdk-cosmos`](./packages/cosmos) | THORChain (RUNE), MAYAChain (CACAO) | v0.1 (unpublished) |
 
 Each package's README has the user-facing documentation. The repository-level docs below are for contributors and maintainers.
 
@@ -21,7 +22,8 @@ wdk-protocol-bridges-swapdk/
 ├── packages/
 │   ├── common/   # Shared HTTP client, error types, asset utils, token registry
 │   ├── evm/      # EVM source bridge + same-chain swap
-│   └── solana/   # Solana source bridge (native SOL)
+│   ├── solana/   # Solana source bridge (native SOL)
+│   └── cosmos/   # THORChain / MAYAChain source bridge (MsgDeposit)
 ├── docs/         # Research notes (BTC source, Solana source, etc.)
 ├── examples/     # End-to-end WDK app scaffolds per source chain
 └── package.json  # Workspaces config
@@ -54,6 +56,7 @@ Per-package, manually, after a clean `npm install` + `npm run build` + `npm test
 npm publish -w @swapdk/wdk-protocol-bridge-swapdk-common --access public
 npm publish -w @swapdk/wdk-protocol-bridge-swapdk-evm    --access public
 npm publish -w @swapdk/wdk-protocol-bridge-swapdk-solana --access public
+npm publish -w @swapdk/wdk-protocol-bridge-swapdk-cosmos --access public
 ```
 
 `common` must be published before consuming packages that depend on a new version of it; otherwise npm rejects the dependency range.

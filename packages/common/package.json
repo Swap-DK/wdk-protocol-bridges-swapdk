@@ -1,6 +1,6 @@
 {
   "name": "@swapdk/wdk-protocol-bridge-swapdk-common",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Shared infrastructure for the SwapDK WDK protocol bridge family — HTTP client, error types, route selection, asset utilities, token registry. Not intended to be consumed directly; bridge-specific packages re-export what their users need.",
   "type": "module",
   "main": "dist/index.js",

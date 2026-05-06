@@ -86,6 +86,78 @@ export class SwapDKApiError extends SwapDKError {
       this.errorCode === "swapProviderUnsupported"
     );
   }
+
+  /**
+   * True when `/swap` responded that the chosen route's `sellAmount` is
+   * below the upstream protocol's `recommended_min_amount_in`. This is
+   * the structured form of the previous "silent 200 with empty memo"
+   * degradation (fixed in swap-engine) — surfacing it as 422 lets a
+   * caller prompt the user for a larger amount instead of broadcasting
+   * a malformed tx.
+   *
+   * Client-actionable: the typical UX is to display the upstream
+   * `message` (which contains the per-provider minimum) and let the
+   * user retry with a higher amount.
+   */
+  get isAmountBelowMin(): boolean {
+    return (
+      this.path === "/swap" &&
+      this.status === 422 &&
+      this.errorCode === "swap_amount_below_min"
+    );
+  }
+
+  /**
+   * True when `/swap` rejected the request because the upstream protocol
+   * could not validate an affiliate parameter (typically a missing or
+   * unregistered mayaname / bech32 address in the swap-engine deployment's
+   * affiliate config or in the API key's metadata).
+   *
+   * Operator-actionable, not user-actionable: the deployment's affiliate
+   * configuration needs fixing. UIs should surface this as a server-side
+   * misconfiguration rather than a user input error.
+   */
+  get isInvalidAffiliate(): boolean {
+    return (
+      this.path === "/swap" &&
+      this.status === 422 &&
+      this.errorCode === "swap_invalid_affiliate"
+    );
+  }
+
+  /**
+   * True when `/swap` rejected the request because the upstream protocol
+   * reported the route as unavailable (halted pool, missing pool, etc.).
+   *
+   * Client-actionable: re-quote with a different asset pair, or wait
+   * and retry if the condition is transient (pool resumes).
+   */
+  get isRouteUnavailable(): boolean {
+    return (
+      this.path === "/swap" &&
+      this.status === 422 &&
+      this.errorCode === "swap_route_unavailable"
+    );
+  }
+
+  /**
+   * True when `/swap` was rejected by the upstream protocol with an
+   * error that swap-engine could not classify into a more specific
+   * condition (catch-all). The free-form upstream message is preserved
+   * in `this.message`.
+   *
+   * Action depends on the upstream message — this getter is mainly
+   * useful as a fallback discriminator alongside the more specific
+   * `isAmountBelowMin` / `isInvalidAffiliate` / `isRouteUnavailable`
+   * helpers.
+   */
+  get isUpstreamRejected(): boolean {
+    return (
+      this.path === "/swap" &&
+      this.status === 422 &&
+      this.errorCode === "swap_upstream_rejected"
+    );
+  }
 }
 
 /**

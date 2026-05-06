@@ -33,6 +33,8 @@ export const CHAIN_MAP: Record<string, string> = {
   litecoin: "LTC",
   dogecoin: "DOGE",
   tron: "TRON",
+  thorchain: "THOR",
+  mayachain: "MAYA",
 };
 
 /** Native (gas) token symbol per SwapKit chain prefix. */
@@ -49,6 +51,8 @@ export const NATIVE_SYMBOL: Record<string, string> = {
   LTC: "LTC",
   DOGE: "DOGE",
   TRON: "TRX",
+  THOR: "RUNE",
+  MAYA: "CACAO",
 };
 
 /** Native (gas) token decimal precision per SwapKit chain prefix. */
@@ -65,6 +69,8 @@ export const NATIVE_DECIMALS: Record<string, number> = {
   LTC: 8,
   DOGE: 8,
   TRON: 6,
+  THOR: 8, // 1 RUNE = 1e8 base units
+  MAYA: 10, // 1 CACAO = 1e10 base units
 };
 
 const REVERSE_CHAIN_MAP: Record<string, string> = Object.fromEntries(

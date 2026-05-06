@@ -108,6 +108,99 @@ describe("SwapDKApiError", () => {
       expect(e.isNotFound).toBe(false);
     });
   });
+
+  describe("isAmountBelowMin", () => {
+    it("true only for /swap 422 swap_amount_below_min", () => {
+      expect(
+        new SwapDKApiError(422, "/swap", "swap_amount_below_min").isAmountBelowMin,
+      ).toBe(true);
+    });
+
+    it("false for /swap with other status codes", () => {
+      expect(
+        new SwapDKApiError(400, "/swap", "swap_amount_below_min").isAmountBelowMin,
+      ).toBe(false);
+      expect(
+        new SwapDKApiError(502, "/swap", "swap_amount_below_min").isAmountBelowMin,
+      ).toBe(false);
+    });
+
+    it("false for 422 with other errorCode", () => {
+      expect(new SwapDKApiError(422, "/swap").isAmountBelowMin).toBe(false);
+      expect(
+        new SwapDKApiError(422, "/swap", "other_error").isAmountBelowMin,
+      ).toBe(false);
+    });
+
+    it("false for 422 on other paths (e.g. /quote, /track)", () => {
+      expect(
+        new SwapDKApiError(422, "/quote", "swap_amount_below_min").isAmountBelowMin,
+      ).toBe(false);
+    });
+
+    it("does not collide with other condition helpers", () => {
+      const e = new SwapDKApiError(422, "/swap", "swap_amount_below_min");
+      expect(e.isAmountBelowMin).toBe(true);
+      expect(e.isProviderUnsupported).toBe(false);
+      expect(e.isStaleRoute).toBe(false);
+      expect(e.isNotFound).toBe(false);
+      expect(e.isInvalidAffiliate).toBe(false);
+      expect(e.isRouteUnavailable).toBe(false);
+      expect(e.isUpstreamRejected).toBe(false);
+    });
+  });
+
+  describe("isInvalidAffiliate", () => {
+    it("true only for /swap 422 swap_invalid_affiliate", () => {
+      expect(
+        new SwapDKApiError(422, "/swap", "swap_invalid_affiliate").isInvalidAffiliate,
+      ).toBe(true);
+    });
+
+    it("false for other status / path / code combinations", () => {
+      expect(
+        new SwapDKApiError(400, "/swap", "swap_invalid_affiliate").isInvalidAffiliate,
+      ).toBe(false);
+      expect(
+        new SwapDKApiError(422, "/quote", "swap_invalid_affiliate").isInvalidAffiliate,
+      ).toBe(false);
+      expect(new SwapDKApiError(422, "/swap", "other").isInvalidAffiliate).toBe(false);
+    });
+  });
+
+  describe("isRouteUnavailable", () => {
+    it("true only for /swap 422 swap_route_unavailable", () => {
+      expect(
+        new SwapDKApiError(422, "/swap", "swap_route_unavailable").isRouteUnavailable,
+      ).toBe(true);
+    });
+
+    it("false for other combinations", () => {
+      expect(
+        new SwapDKApiError(400, "/swap", "swap_route_unavailable").isRouteUnavailable,
+      ).toBe(false);
+      expect(new SwapDKApiError(422, "/swap").isRouteUnavailable).toBe(false);
+    });
+  });
+
+  describe("isUpstreamRejected", () => {
+    it("true only for /swap 422 swap_upstream_rejected (catch-all)", () => {
+      expect(
+        new SwapDKApiError(422, "/swap", "swap_upstream_rejected").isUpstreamRejected,
+      ).toBe(true);
+    });
+
+    it("does not collide with the more specific upstream-error helpers", () => {
+      const catchAll = new SwapDKApiError(422, "/swap", "swap_upstream_rejected");
+      expect(catchAll.isUpstreamRejected).toBe(true);
+      expect(catchAll.isAmountBelowMin).toBe(false);
+      expect(catchAll.isInvalidAffiliate).toBe(false);
+      expect(catchAll.isRouteUnavailable).toBe(false);
+
+      const specific = new SwapDKApiError(422, "/swap", "swap_invalid_affiliate");
+      expect(specific.isUpstreamRejected).toBe(false);
+    });
+  });
 });
 
 describe("SwapDKProviderError", () => {
