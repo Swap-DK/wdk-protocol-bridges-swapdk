@@ -1,7 +1,7 @@
 {
-  "name": "@swapdk/wdk-protocol-bridge-swapdk-common",
-  "version": "0.1.2",
-  "description": "Shared infrastructure for the SwapDK WDK protocol bridge family — HTTP client, error types, route selection, asset utilities, token registry. Not intended to be consumed directly; bridge-specific packages re-export what their users need.",
+  "name": "@swapdk/wdk-protocol-bridge-swapdk-cosmos",
+  "version": "0.1.0",
+  "description": "WDK bridge protocol module for cross-chain swaps with THORChain (RUNE) or MAYAChain (CACAO) as source chain via SwapDK",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,13 +25,19 @@
     "wdk",
     "tether",
     "swapdk",
-    "internal"
+    "bridge",
+    "cross-chain",
+    "cosmos",
+    "thorchain",
+    "mayachain",
+    "rune",
+    "cacao"
   ],
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/Swap-DK/wdk-protocol-bridges-swapdk.git",
-    "directory": "packages/common"
+    "directory": "packages/cosmos"
   },
   "author": "SwapDK",
   "bugs": {
@@ -40,5 +46,17 @@
   "homepage": "https://swapdk.com",
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "@swapdk/wdk-protocol-bridge-swapdk-common": "^0.1.1"
+  },
+  "peerDependencies": {
+    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@swapdk/wdk-wallet-cosmos": "^0.1.0"
+  },
+  "devDependencies": {
+    "@tetherto/wdk": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@swapdk/wdk-wallet-cosmos": "file:../../../wdk-wallets-swapdk/packages/cosmos"
   }
 }

@@ -51,6 +51,7 @@ export interface QuoteRoute {
     value?: string;
     data?: string;
     gas?: string;
+    gasPrice?: string;
   };
   estimatedTime?: {
     inbound: number;
@@ -85,6 +86,7 @@ export interface SwapResponse {
     value?: string;
     data?: string;
     gas?: string;
+    gasPrice?: string;
   };
   approvalTx?: {
     to: string;

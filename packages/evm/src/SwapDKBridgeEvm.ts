@@ -40,6 +40,29 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Some WDK EVM wallet implementations (`@tetherto/wdk-wallet-evm`,
+ * ethers-derived stacks) return a TransactionResponse-like object from
+ * `sendTransaction`; others return the hex hash string directly. Pull
+ * the canonical hash from either shape.
+ */
+function txHash(result: string | { hash: string }): string {
+  return typeof result === "string" ? result : result.hash;
+}
+
+/**
+ * Compute estimated tx fee in wei from a `tx` payload (gas × gasPrice).
+ * Falls back to gas alone if gasPrice is missing — older swap-engine
+ * responses or non-EIP-1559 chains may omit it. A `0n` result means
+ * "no estimate available".
+ */
+function estimateFeeWei(tx: { gas?: string; gasPrice?: string } | undefined): bigint {
+  if (!tx?.gas) return 0n;
+  const gas = BigInt(tx.gas);
+  if (!tx.gasPrice) return gas; // legacy fallback; caller should treat as "gas units" only
+  return gas * BigInt(tx.gasPrice);
+}
+
 /** Options for {@link SwapDKBridgeEvm.waitForBridge}. */
 export interface WaitForBridgeOptions {
   /** Poll interval in milliseconds (default: 15_000). */
@@ -133,7 +156,7 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
     // 4. Send ERC-20 approval if needed and wait for confirmation
     let approveHash: string | undefined;
     if (swapRes.approvalTx) {
-      approveHash = await this.evmAccount.sendTransaction({
+      const approveResult = await this.evmAccount.sendTransaction({
         to: swapRes.approvalTx.to,
         data: swapRes.approvalTx.data,
         value: swapRes.approvalTx.value
@@ -143,6 +166,7 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
           ? BigInt(swapRes.approvalTx.gasLimit)
           : undefined,
       });
+      approveHash = txHash(approveResult);
 
       if (this.evmAccount.waitForTransaction) {
         await this.evmAccount.waitForTransaction(approveHash);
@@ -159,15 +183,19 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
       );
     }
 
-    const hash = await this.evmAccount.sendTransaction({
+    const sendResult = await this.evmAccount.sendTransaction({
       to: tx.to,
       data: tx.data,
       value: tx.value ? BigInt(tx.value) : 0n,
       gas: tx.gas ? BigInt(tx.gas) : undefined,
     });
+    const hash = txHash(sendResult);
 
-    // 6. Build result
-    const fee = tx.gas ? BigInt(tx.gas) : 0n;
+    // 6. Build result. `fee` is the estimated source-tx cost in wei
+    // (gas_limit × gasPrice when both are populated; gas_limit alone
+    // as a fallback for non-EIP-1559 chains or older swap-engine
+    // responses without gasPrice).
+    const fee = estimateFeeWei(tx);
     const srcChain = this.sourceChain ?? "ethereum";
     const sellDecimals = resolveAssetDecimals(srcChain, options.token);
     const buyDecimals = resolveAssetDecimals(options.targetChain, options.tokenOut);
@@ -325,7 +353,7 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
     const limit = this.swapDKConfig.bridgeMaxFee;
     if (limit === undefined) return;
 
-    const fee = route.tx?.gas ? BigInt(route.tx.gas) : 0n;
+    const fee = estimateFeeWei(route.tx);
     if (fee > limit) {
       throw new SwapDKUserError(
         `Estimated fee ${fee} wei exceeds bridgeMaxFee ${limit} wei`,
@@ -341,7 +369,7 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
     route: QuoteRoute,
     options: SwapDKBridgeOptions,
   ): SwapDKBridgeQuoteResult {
-    const fee = route.tx?.gas ? BigInt(route.tx.gas) : 0n;
+    const fee = estimateFeeWei(route.tx);
     const srcChain = this.sourceChain ?? "ethereum";
     const sellDecimals = resolveAssetDecimals(srcChain, options.token);
     const buyDecimals = resolveAssetDecimals(options.targetChain, options.tokenOut);

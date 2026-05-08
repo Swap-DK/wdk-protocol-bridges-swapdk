@@ -346,6 +346,75 @@ describe("SwapDKBridgeEvm", () => {
       });
     });
 
+    it("extracts the hash when sendTransaction returns a TransactionResponse object", async () => {
+      // Some WDK EVM wallet implementations (ethers-derived stacks) return a
+      // TransactionResponse-like object from sendTransaction rather than the
+      // hex hash string. The bridge must normalise this.
+      account.sendTransaction.mockResolvedValueOnce({
+        hash: "0xRealHashFromObject",
+        wait: vi.fn(),
+      });
+      stubFetchResponses(makeQuoteResponse(), makeSwapResponse());
+
+      const result = await bridge.bridge({
+        targetChain: "bitcoin",
+        recipient: "bc1qxyz",
+        token: "0x0000000000000000000000000000000000000000",
+        amount: 1000000000000000000n,
+      });
+
+      expect(result.hash).toBe("0xRealHashFromObject");
+      expect(typeof result.hash).toBe("string");
+    });
+
+    it("computes fee as gas × gasPrice when both are populated (EIP-1559 / typical mainnet)", async () => {
+      stubFetchResponses(
+        makeQuoteResponse({
+          tx: {
+            to: "0xRouter",
+            data: "0xcalldata",
+            value: "1000000000000000000",
+            gas: "0xad28",         // 44328
+            gasPrice: "0xc3a1f3b0", // 3,283,353,008 wei
+          },
+        }),
+        makeSwapResponse({
+          tx: {
+            to: "0xRouter",
+            data: "0xcalldata",
+            value: "1000000000000000000",
+            gas: "0xad28",
+            gasPrice: "0xc3a1f3b0",
+          },
+        }),
+      );
+
+      const result = await bridge.bridge({
+        targetChain: "bitcoin",
+        recipient: "bc1qxyz",
+        token: "0x0000000000000000000000000000000000000000",
+        amount: 1000000000000000000n,
+      });
+
+      // 44328 × 3282170800 = 145,492,067,222,400 wei  (~0.000146 ETH)
+      expect(result.fee).toBe(145492067222400n);
+    });
+
+    it("falls back to gas-units alone when gasPrice is missing (legacy chains / older swap-engine)", async () => {
+      // Default fixture has gas=200000 and no gasPrice, so fee=200000n (units).
+      // This guards the fallback so legacy responses don't crash.
+      stubFetchResponses(makeQuoteResponse(), makeSwapResponse());
+
+      const result = await bridge.bridge({
+        targetChain: "bitcoin",
+        recipient: "bc1qxyz",
+        token: "0x0000000000000000000000000000000000000000",
+        amount: 1000000000000000000n,
+      });
+
+      expect(result.fee).toBe(200000n);
+    });
+
     it("sends approve tx and waits before bridge tx", async () => {
       account.sendTransaction
         .mockResolvedValueOnce("0xApproveHash")

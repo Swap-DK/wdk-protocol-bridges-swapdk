@@ -117,6 +117,11 @@ export interface SwapDKBridgeQuoteResult extends Omit<BridgeResult, "hash"> {
  * Consumers pass any object that satisfies this interface — typically a
  * `WalletAccountEvm` from `@tetherto/wdk-wallet-evm`.  We don't import
  * that package directly to avoid version coupling.
+ *
+ * `sendTransaction` is permissive about its return type: some
+ * implementations (e.g. ethers-style) return an object carrying
+ * `{ hash, wait, ... }`; others return the hash string directly.
+ * The bridge normalises this internally.
  */
 export interface EvmWalletAccount {
   getAddress(): string | Promise<string>;
@@ -125,7 +130,7 @@ export interface EvmWalletAccount {
     value?: bigint;
     data?: string;
     gas?: bigint;
-  }): Promise<string>;
+  }): Promise<string | { hash: string }>;
   /**
    * Wait for a transaction to be confirmed on-chain.
    * Optional — if not provided, bridge() will proceed immediately
