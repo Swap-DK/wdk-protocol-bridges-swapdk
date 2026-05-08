@@ -21,6 +21,7 @@ import {
 } from "@swapdk/wdk-protocol-bridge-swapdk-common";
 import type { QuoteRoute } from "@swapdk/wdk-protocol-bridge-swapdk-common";
 import { toSwapKitAsset, resolveAssetDecimals } from "./asset-map.js";
+import { txHash, estimateFeeWei } from "./internal.js";
 import type {
   EvmWalletAccount,
   SwapDKBridgeConfig,
@@ -100,7 +101,7 @@ export class SwapDKSwapEvm extends SwapProtocol {
     // 4. Send ERC-20 approval if needed and wait for confirmation
     let approveHash: string | undefined;
     if (swapRes.approvalTx) {
-      approveHash = await this.evmAccount.sendTransaction({
+      const approveResult = await this.evmAccount.sendTransaction({
         to: swapRes.approvalTx.to,
         data: swapRes.approvalTx.data,
         value: swapRes.approvalTx.value
@@ -110,6 +111,7 @@ export class SwapDKSwapEvm extends SwapProtocol {
           ? BigInt(swapRes.approvalTx.gasLimit)
           : undefined,
       });
+      approveHash = txHash(approveResult);
 
       if (this.evmAccount.waitForTransaction) {
         await this.evmAccount.waitForTransaction(approveHash);
@@ -125,21 +127,24 @@ export class SwapDKSwapEvm extends SwapProtocol {
       );
     }
 
-    const hash = await this.evmAccount.sendTransaction({
+    const sendResult = await this.evmAccount.sendTransaction({
       to: tx.to,
       data: tx.data,
       value: tx.value ? BigInt(tx.value) : 0n,
       gas: tx.gas ? BigInt(tx.gas) : undefined,
     });
+    const hash = txHash(sendResult);
 
-    // 6. Build result
+    // 6. Build result. `fee` is the estimated source-tx cost in wei
+    // (gas_limit × gasPrice when both populated; gas_limit alone as a
+    // legacy fallback).
     const chain = this.sourceChain ?? "ethereum";
     const sellDecimals = resolveAssetDecimals(chain, options.tokenIn);
     const buyDecimals = resolveAssetDecimals(chain, options.tokenOut);
 
     return {
       hash,
-      fee: tx.gas ? BigInt(tx.gas) : 0n,
+      fee: estimateFeeWei(tx),
       tokenInAmount: fromHumanDecimal(swapRes.sellAmount, sellDecimals),
       tokenOutAmount: fromHumanDecimal(swapRes.buyAmount, buyDecimals),
       approveHash,
@@ -188,7 +193,7 @@ export class SwapDKSwapEvm extends SwapProtocol {
     const limit = this.swapDKConfig.swapMaxFee;
     if (limit === undefined) return;
 
-    const fee = route.tx?.gas ? BigInt(route.tx.gas) : 0n;
+    const fee = estimateFeeWei(route.tx);
     if (fee > limit) {
       throw new SwapDKUserError(
         `Estimated fee ${fee} wei exceeds swapMaxFee ${limit} wei`,
@@ -213,7 +218,7 @@ export class SwapDKSwapEvm extends SwapProtocol {
     const buyDecimals = resolveAssetDecimals(chain, options.tokenOut);
 
     return {
-      fee: route.tx?.gas ? BigInt(route.tx.gas) : 0n,
+      fee: estimateFeeWei(route.tx),
       tokenInAmount: fromHumanDecimal(route.sellAmount, sellDecimals),
       tokenOutAmount: fromHumanDecimal(route.expectedBuyAmount, buyDecimals),
     };
