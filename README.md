@@ -6,12 +6,14 @@ Each package under `packages/` is published to npm independently, with shared in
 
 ## Packages
 
-| Package | Source chain(s) | Status |
+| Package | Source chain(s) | Latest version |
 |---|---|---|
-| [`@swapdk/wdk-protocol-bridge-swapdk-common`](./packages/common) | — (shared infra) | Internal |
-| [`@swapdk/wdk-protocol-bridge-swapdk-evm`](./packages/evm) | Ethereum, Arbitrum, Base, BSC, Avalanche, Optimism, Polygon | v1.0 |
-| [`@swapdk/wdk-protocol-bridge-swapdk-solana`](./packages/solana) | Solana (native SOL) | v0.1 |
-| [`@swapdk/wdk-protocol-bridge-swapdk-cosmos`](./packages/cosmos) | THORChain (RUNE), MAYAChain (CACAO) | v0.1 (unpublished) |
+| [`@swapdk/wdk-protocol-bridge-swapdk-common`](./packages/common) | — (shared infra) | 0.1.2 |
+| [`@swapdk/wdk-protocol-bridge-swapdk-evm`](./packages/evm) | Ethereum, Arbitrum, Base, BSC, Avalanche, Optimism, Polygon | 1.0.1 |
+| [`@swapdk/wdk-protocol-bridge-swapdk-solana`](./packages/solana) | Solana (native SOL) | 0.1.0 |
+| [`@swapdk/wdk-protocol-bridge-swapdk-cosmos`](./packages/cosmos) | THORChain (RUNE), MAYAChain (CACAO) | 0.1.0 |
+
+Specific per-package status (validation stage, in-flight items, blocked) is in [`STATUS.md`](./STATUS.md).
 
 Each package's README has the user-facing documentation. The repository-level docs below are for contributors and maintainers.
 
