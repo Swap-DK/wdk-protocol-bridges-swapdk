@@ -20,7 +20,7 @@ import {
   prefixToWdkChain,
   lookupToken,
   SwapDKUserError,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 const COSMOS_PREFIXES = new Set(["THOR", "MAYA"]);
 

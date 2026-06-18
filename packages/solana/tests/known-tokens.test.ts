@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "vitest";
-import { lookupToken, registerToken, KNOWN_TOKENS } from "@swapdk/wdk-protocol-bridge-swapdk-common";
-import { SwapDKUserError } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+import { lookupToken, registerToken, KNOWN_TOKENS } from "@swapdk/swap-engine-client";
+import { SwapDKUserError } from "@swapdk/swap-engine-client";
 import { toSwapKitAsset, getAssetDecimals } from "../src/asset-map.js";
 
 const USDC_SOL = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";

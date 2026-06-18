@@ -72,6 +72,12 @@ export interface SwapDKBridgeResult extends BridgeResult {
   tokenInAmount: bigint;
   /** Expected buy amount on destination (base units). */
   tokenOutAmount: bigint;
+  /**
+   * SwapKit asset string identifying which currency `bridgeFee` is
+   * denominated in (e.g. `"THOR.RUNE"`). `undefined` when the route did
+   * not surface a fee asset.
+   */
+  bridgeFeeAsset?: string;
 }
 
 /** Result of `quoteBridge()` — same shape as `bridge()` minus `hash`. */
@@ -84,6 +90,8 @@ export interface SwapDKBridgeQuoteResult extends Omit<BridgeResult, "hash"> {
   estimatedTime?: number;
   /** Providers chosen by swap-engine (e.g. ["THORCHAIN"]). */
   providers?: string[];
+  /** See {@link SwapDKBridgeResult.bridgeFeeAsset}. */
+  bridgeFeeAsset?: string;
 }
 
 // ---------------------------------------------------------------------------

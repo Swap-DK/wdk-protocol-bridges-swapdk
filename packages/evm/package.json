@@ -1,6 +1,6 @@
 {
   "name": "@swapdk/wdk-protocol-bridge-swapdk-evm",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "description": "WDK bridge and swap protocol module for cross-chain and same-chain swaps via SwapDK (THORChain, MAYAChain, Chainflip)",
   "type": "module",
   "main": "dist/index.js",
@@ -49,7 +49,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@swapdk/wdk-protocol-bridge-swapdk-common": "^0.1.2"
+    "@swapdk/swap-engine-client": "^0.2.0"
   },
   "peerDependencies": {
     "@tetherto/wdk-wallet": "^1.0.0-beta.7"

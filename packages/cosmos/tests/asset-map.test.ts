@@ -7,7 +7,7 @@ import {
 import {
   wdkChainToPrefix,
   NATIVE_DECIMALS,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 describe("THORChain / MAYAChain in CHAIN_MAP (common)", () => {
   it("maps thorchain ↔ THOR", () => {

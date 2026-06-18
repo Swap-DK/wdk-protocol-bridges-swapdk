@@ -1,0 +1,61 @@
+{
+  "name": "@swapdk/wdk-protocol-bridge-swapdk-btc",
+  "version": "0.2.2",
+  "description": "WDK bridge protocol module for cross-chain swaps from Bitcoin as source chain via SwapDK swap-engine + THORChain.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "build": "tsc -b",
+    "prepack": "npm run clean && npm run build",
+    "dev": "tsc -b --watch",
+    "lint": "tsc -b --dry"
+  },
+  "keywords": [
+    "wdk",
+    "tether",
+    "swapdk",
+    "bridge",
+    "cross-chain",
+    "bitcoin",
+    "btc",
+    "thorchain",
+    "op-return"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Swap-DK/wdk-protocol-bridges-swapdk.git",
+    "directory": "packages/btc"
+  },
+  "author": "SwapDK",
+  "bugs": {
+    "url": "https://github.com/Swap-DK/wdk-protocol-bridges-swapdk/issues"
+  },
+  "homepage": "https://swapdk.com",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@swapdk/swap-engine-client": "^0.2.0"
+  },
+  "peerDependencies": {
+    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@swapdk/wdk-wallet-btc": "^0.1.0"
+  },
+  "devDependencies": {
+    "@tetherto/wdk": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@swapdk/wdk-wallet-btc": "file:../../../wdk-wallets-swapdk/packages/btc"
+  }
+}

@@ -4,7 +4,7 @@ import { BridgeProtocol } from "@tetherto/wdk-wallet/protocols";
 import {
   SwapDKUserError,
   SwapDKApiError,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 import type {
   CosmosWalletAccount,
   SwapDKBridgeConfig,
@@ -76,6 +76,7 @@ function makeSwapResponse(overrides: Record<string, unknown> = {}) {
     buyAmount: "0.0001",
     routeId: "r1",
     providers: ["THORCHAIN"],
+    targetAddress: "",
     memo: "=:BTC.BTC:bc1qrecipient:0/1/0",
     fees: [
       { type: "liquidity", amount: "0.02", asset: "THOR.RUNE" },

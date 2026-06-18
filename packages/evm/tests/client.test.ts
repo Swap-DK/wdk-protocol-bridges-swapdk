@@ -1,9 +1,34 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SwapDKClient } from "@swapdk/wdk-protocol-bridge-swapdk-common";
-import { SwapDKApiError, SwapDKNetworkError } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+import { SwapDKClient } from "@swapdk/swap-engine-client";
+import { SwapDKApiError, SwapDKNetworkError } from "@swapdk/swap-engine-client";
 
 const API_URL = "https://api.swapdk.test";
 const API_KEY = "test-key";
+
+/**
+ * Complete TrackResponse fixture. zod (added in swap-engine-client 0.2.0)
+ * rejects partial shapes — every required field must be present. Real
+ * swap-engine /track responses populate these as zero-value sentinels for
+ * unfilled state ("" for unknown addresses, 0 for not-yet-finalised),
+ * so this fixture mirrors that.
+ */
+const TRACK_RESPONSE_FIXTURE = {
+  chainId: "ETH",
+  hash: "0x0",
+  block: 0,
+  type: "",
+  status: "pending",
+  trackingStatus: "",
+  fromAsset: "",
+  fromAmount: "",
+  fromAddress: "",
+  toAsset: "",
+  toAmount: "",
+  toAddress: "",
+  finalisedAt: 0,
+  meta: {},
+  legs: [],
+};
 
 describe("SwapDKClient", () => {
   let client: SwapDKClient;
@@ -67,6 +92,141 @@ describe("SwapDKClient", () => {
 
       const [, init] = fetchSpy.mock.calls[0];
       expect(init.signal).toBeInstanceOf(AbortSignal);
+    });
+  });
+
+  describe("track", () => {
+    it("sends POST to /track with hash + chainId in the body", async () => {
+      stubFetch({ ...TRACK_RESPONSE_FIXTURE, status: "completed" });
+
+      await client.track({ hash: "0xabc", chainId: "ETH" });
+
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${API_URL}/track`);
+      expect(init.method).toBe("POST");
+      expect(JSON.parse(init.body)).toEqual({ hash: "0xabc", chainId: "ETH" });
+    });
+
+    it("threads depositAddress through to the request body", async () => {
+      stubFetch({ ...TRACK_RESPONSE_FIXTURE, status: "swapping" });
+
+      await client.track({
+        hash: "0xabc",
+        chainId: "BTC",
+        depositAddress: "bc1qchainfliprandomdepositchanneladdr",
+      });
+
+      const requestBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
+      expect(requestBody.depositAddress).toBe("bc1qchainfliprandomdepositchanneladdr");
+    });
+
+    it("accepts depositAddress alone (no hash)", async () => {
+      stubFetch({ ...TRACK_RESPONSE_FIXTURE, status: "not_started" });
+
+      await client.track({ depositAddress: "bc1qstandalone" });
+
+      const requestBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
+      expect(requestBody.depositAddress).toBe("bc1qstandalone");
+      expect(requestBody.hash).toBeUndefined();
+    });
+  });
+
+  describe("openBrokerChannel", () => {
+    it("sends POST to /chainflip/broker/channel with the request shape verbatim", async () => {
+      const responseBody = {
+        depositAddress: "bc1qchainflipdepositxxxxxxxxxxxxxxxx",
+        channelId: "6739624-Bitcoin-2562",
+        explorerUrl: "https://scan.chainflip.io/channels/6739624-Bitcoin-2562",
+        error: "",
+      };
+      stubFetch(responseBody);
+
+      const req = {
+        sellAsset: { chain: "Bitcoin", asset: "BTC" },
+        buyAsset:  { chain: "Ethereum", asset: "ETH" },
+        destinationAddress: "0xRecipientAddrxxxxxxxxxxxxxxxxxxx",
+        refundParameters: {
+          refundAddress: "bc1qrefundaddressxxxxxxxxxxxxxxxxxx",
+          minPrice: "0x0",
+          retryDuration: 100,
+        },
+      };
+
+      const result = await client.openBrokerChannel(req);
+
+      expect(fetchSpy).toHaveBeenCalledOnce();
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe(`${API_URL}/chainflip/broker/channel`);
+      expect(init.method).toBe("POST");
+      expect(init.headers["x-api-key"]).toBe(API_KEY);
+      expect(JSON.parse(init.body)).toEqual(req);
+      expect(result).toEqual(responseBody);
+    });
+
+    it("passes sellAmount through to the broker channel request (arms min-deposit guard)", async () => {
+      stubFetch({
+        depositAddress: "bc1qchainflipdepositxxxxxxxxxxxxxxxx",
+        channelId: "7000000-Bitcoin-2",
+        explorerUrl: "",
+        error: "",
+      });
+
+      // sellAmount must reach swap-engine so CheckChainflipMinimumDeposit
+      // can pre-reject sub-min channels. Chainflip does NOT refund
+      // sub-minimum deposits; without this field the guard is dormant.
+      const req = {
+        sellAsset: { chain: "Bitcoin", asset: "BTC" },
+        buyAsset:  { chain: "Ethereum", asset: "ETH" },
+        destinationAddress: "0xRecipient",
+        refundParameters: { refundAddress: "bc1qrefund" },
+        sellAmount: "0.0007",
+      };
+
+      await client.openBrokerChannel(req);
+
+      const requestBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
+      expect(requestBody.sellAmount).toBe("0.0007");
+    });
+
+    it("passes through optional dca/affiliate/boost fields when supplied", async () => {
+      stubFetch({
+        depositAddress: "bc1qchainflipdepositxxxxxxxxxxxxxxxx",
+        channelId: "7000000-Bitcoin-1",
+        explorerUrl: "",
+        error: "",
+      });
+
+      const req = {
+        sellAsset: { chain: "Bitcoin", asset: "BTC" },
+        buyAsset:  { chain: "Ethereum", asset: "USDC" },
+        destinationAddress: "0xRecipient",
+        refundParameters: { refundAddress: "bc1qrefund" },
+        dcaParameters: { chunkInterval: 2, numberOfChunks: 4 },
+        maxBoostFeeBps: 30,
+        affiliateFees: [{ brokerAddress: "cFAffiliateXyz", feeBps: 10 }],
+      };
+
+      await client.openBrokerChannel(req);
+
+      const requestBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
+      expect(requestBody.dcaParameters).toEqual({ chunkInterval: 2, numberOfChunks: 4 });
+      expect(requestBody.maxBoostFeeBps).toBe(30);
+      expect(requestBody.affiliateFees).toEqual([{ brokerAddress: "cFAffiliateXyz", feeBps: 10 }]);
+    });
+
+    it("surfaces SwapDKApiError on 4xx (e.g. missing refundAddress)", async () => {
+      stubFetch(
+        { error: "refundParameters.refundAddress is required for Chainflip" },
+        400,
+      );
+
+      const req = {
+        sellAsset: { chain: "Bitcoin", asset: "BTC" },
+        buyAsset:  { chain: "Ethereum", asset: "ETH" },
+        destinationAddress: "0xRecipient",
+      };
+
+      await expect(client.openBrokerChannel(req)).rejects.toThrow(SwapDKApiError);
     });
   });
 
@@ -210,6 +370,34 @@ describe("SwapDKClient", () => {
 
       expect(fetchSpy).toHaveBeenCalledTimes(2);
       expect(result).toEqual({ quoteId: "q1", routes: [] });
+    });
+
+    // Opening a Chainflip deposit channel is non-idempotent: a 5xx (or a
+    // network drop) may mean the broker already allocated the channel and
+    // the response was lost. Retrying would allocate a second channel the
+    // caller never sees — funds sent to it would be unrecoverable. See
+    // SwapDKClient.NON_IDEMPOTENT_PATHS.
+    const brokerReq = {
+      sellAsset: { chain: "Bitcoin", asset: "BTC" },
+      buyAsset:  { chain: "Ethereum", asset: "ETH" },
+      destinationAddress: "0xRecipient",
+      refundParameters: { refundAddress: "bc1qrefund" },
+    };
+
+    it("does not retry /chainflip/broker/channel on 5xx", async () => {
+      const retryClient = new SwapDKClient(API_URL, API_KEY, { retries: 3, timeoutMs: 5000 });
+      stubFetch({ message: "broker unreachable" }, 503);
+
+      await expect(retryClient.openBrokerChannel(brokerReq)).rejects.toBeInstanceOf(SwapDKApiError);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it("does not retry /chainflip/broker/channel on network error", async () => {
+      const retryClient = new SwapDKClient(API_URL, API_KEY, { retries: 3, timeoutMs: 5000 });
+      fetchSpy.mockRejectedValue(new Error("ECONNRESET"));
+
+      await expect(retryClient.openBrokerChannel(brokerReq)).rejects.toBeInstanceOf(SwapDKNetworkError);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
     });
   });
 });

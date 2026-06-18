@@ -14,13 +14,17 @@ import {
   SwapDKApiError,
   SwapDKProviderError,
   SwapDKUserError,
-  NATIVE_SYMBOL,
   wdkChainToPrefix,
   toHumanDecimal,
   fromHumanDecimal,
   pickBestRoute,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
-import type { QuoteRoute, TrackResponse } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+  isTerminalTrackStatus,
+  sleep,
+  defaultBuyAsset,
+  feeAssetOfType,
+  sumFeesOfType,
+} from "@swapdk/swap-engine-client";
+import type { BridgeFee, QuoteRoute, TrackResponse } from "@swapdk/swap-engine-client";
 import { toSwapKitAsset, resolveAssetDecimals } from "./asset-map.js";
 import { txHash, estimateFeeWei } from "./internal.js";
 import type {
@@ -30,16 +34,6 @@ import type {
   SwapDKBridgeQuoteResult,
   SwapDKBridgeResult,
 } from "./types.js";
-
-const TERMINAL_TRACK_STATUSES = new Set(["completed", "refunded", "failed"]);
-
-function isTerminalTrackStatus(status: string): boolean {
-  return TERMINAL_TRACK_STATUSES.has(status);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** Options for {@link SwapDKBridgeEvm.waitForBridge}. */
 export interface WaitForBridgeOptions {
@@ -183,6 +177,7 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
       hash,
       fee,
       bridgeFee,
+      bridgeFeeAsset: feeAssetOfType(swapRes.fees, "liquidity"),
       tokenInAmount: fromHumanDecimal(swapRes.sellAmount, sellDecimals),
       tokenOutAmount: fromHumanDecimal(swapRes.buyAmount, buyDecimals),
       approveHash,
@@ -217,14 +212,7 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
     chainId?: string,
   ): Promise<TrackResponse | null> {
     const resolvedChainId = chainId ?? wdkChainToPrefix(this.sourceChain ?? "ethereum");
-    try {
-      return await this.client.track({ hash, chainId: resolvedChainId });
-    } catch (err) {
-      if (err instanceof SwapDKApiError && err.isNotFound) {
-        return null;
-      }
-      throw err;
-    }
+    return this.client.trackOrNotFound({ hash, chainId: resolvedChainId });
   }
 
   // -----------------------------------------------------------------
@@ -289,7 +277,7 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
     const sellAsset = toSwapKitAsset(options.token, srcChain);
     const buyAsset = options.tokenOut
       ? toSwapKitAsset(options.tokenOut, options.targetChain)
-      : this.defaultBuyAsset(options.targetChain);
+      : defaultBuyAsset(options.targetChain);
 
     const sellDecimals = resolveAssetDecimals(srcChain, options.token);
 
@@ -312,19 +300,6 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
       );
     }
     return best;
-  }
-
-  /**
-   * When no explicit tokenOut is given, default to the native asset
-   * of the target chain (e.g. "BTC.BTC" for bitcoin).
-   */
-  private defaultBuyAsset(targetChain: string): string {
-    const prefix = wdkChainToPrefix(targetChain);
-    const symbol = NATIVE_SYMBOL[prefix];
-    if (!symbol) {
-      throw new SwapDKUserError(`No default buy asset for chain: ${targetChain}`);
-    }
-    return `${prefix}.${symbol}`;
   }
 
   private assertFeeWithinLimit(route: QuoteRoute): void {
@@ -356,6 +331,7 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
     return {
       fee,
       bridgeFee,
+      bridgeFeeAsset: feeAssetOfType(route.fees, "liquidity"),
       tokenInAmount: fromHumanDecimal(route.sellAmount, sellDecimals),
       tokenOutAmount: fromHumanDecimal(route.expectedBuyAmount, buyDecimals),
       estimatedTime: route.estimatedTime?.total,
@@ -363,39 +339,16 @@ export class SwapDKBridgeEvm extends BridgeProtocol {
     };
   }
 
-  /**
-   * Sum fees of a given type, best-effort.
-   *
-   * swap-engine returns fee amounts in mixed formats across providers
-   * (some human-decimal, some scaled). This method parses each amount
-   * via `fromHumanDecimal` using the fee's `asset` to resolve decimals.
-   * Unknown assets fall back to 18 decimals. Unparseable entries are
-   * skipped — the returned value is informational, not authoritative.
-   */
+  /** Sum the route's liquidity-type fees with EVM's 18-decimal fallback. */
   private sumFees(
-    fees: Array<{ type: string; amount: string; asset?: string }>,
+    fees: BridgeFee[],
     feeType: string,
   ): bigint {
-    return fees
-      .filter((f) => f.type === feeType)
-      .reduce((sum, f) => {
-        let decimals = 18;
-        if (f.asset) {
-          // `resolveAssetDecimals` derives the chain from the SwapKit
-          // notation itself when the input contains ".", so any fallback
-          // wdkChain works here.
-          try {
-            decimals = resolveAssetDecimals("ethereum", f.asset);
-          } catch {
-            // Unknown asset — 18 is a reasonable default for EVM fees.
-          }
-        }
-        try {
-          return sum + fromHumanDecimal(f.amount, decimals);
-        } catch {
-          return sum;
-        }
-      }, 0n);
+    return sumFeesOfType(fees, feeType, {
+      resolveDecimals: resolveAssetDecimals,
+      sourceChain: this.sourceChain ?? "ethereum",
+      fallbackDecimals: 18,
+    });
   }
 }
 

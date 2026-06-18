@@ -13,7 +13,7 @@ import {
   fromHumanDecimal,
   isLikelySolanaAddress,
   NATIVE_DECIMALS,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 const USDC_SOL = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v";
 const USDT_SOL = "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB";

@@ -70,6 +70,12 @@ export interface SwapDKBridgeResult extends BridgeResult {
   tokenInAmount: bigint;
   /** Expected buy amount on destination (native base units of the buy asset). */
   tokenOutAmount: bigint;
+  /**
+   * SwapKit asset string identifying which currency `bridgeFee` is
+   * denominated in. `undefined` when the route did not surface a fee
+   * asset.
+   */
+  bridgeFeeAsset?: string;
 }
 
 /**
@@ -88,8 +94,15 @@ export interface SwapDKBridgeQuoteResult extends Omit<BridgeResult, "hash"> {
   inboundAddress?: string;
   /** THORChain memo that will be attached via the Memo program. */
   memo?: string;
-  /** Unix timestamp after which the inbound vault no longer accepts this quote. */
-  expiration?: number;
+  /**
+   * Unix timestamp (as a decimal string) after which the inbound vault
+   * no longer accepts this quote. The wire format from swap-engine is a
+   * string; the BTC bridge also surfaces it as `string` — kept that way
+   * here so callers can write one switch across all bridges.
+   */
+  expiration?: string;
+  /** See {@link SwapDKBridgeResult.bridgeFeeAsset}. */
+  bridgeFeeAsset?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -122,4 +135,4 @@ export interface SolanaWalletAccount {
   waitForTransaction?(hash: string): Promise<void>;
 }
 
-// HTTP types moved to @swapdk/wdk-protocol-bridge-swapdk-common
+// HTTP types moved to @swapdk/swap-engine-client

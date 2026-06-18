@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SwapDKClient } from "@swapdk/wdk-protocol-bridge-swapdk-common";
-import { SwapDKApiError } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+import { SwapDKClient } from "@swapdk/swap-engine-client";
+import { SwapDKApiError } from "@swapdk/swap-engine-client";
 import { SwapDKBridgeEvm } from "../src/SwapDKBridgeEvm.js";
-import { SwapDKUserError } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+import { SwapDKUserError } from "@swapdk/swap-engine-client";
 import type { EvmWalletAccount, TrackResponse } from "../src/types.js";
 
 const API_URL = "https://api.swapdk.test";

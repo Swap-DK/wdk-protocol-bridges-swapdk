@@ -1,0 +1,48 @@
+{
+  "name": "@swapdk/swap-engine-client",
+  "version": "0.2.0",
+  "description": "Shared HTTP client + zod-validated schemas for the SwapDK swap-engine API. Consumed by every SwapDK distribution channel — WDK protocol bridges and WagmiDK.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "build": "tsc -b",
+    "prepack": "npm run clean && npm run build",
+    "dev": "tsc -b --watch",
+    "lint": "tsc -b --dry"
+  },
+  "keywords": [
+    "swap-engine",
+    "http-client",
+    "wdk",
+    "tether",
+    "swapdk"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Swap-DK/wdk-protocol-bridges-swapdk.git",
+    "directory": "packages/swap-engine-client"
+  },
+  "author": "SwapDK",
+  "bugs": {
+    "url": "https://github.com/Swap-DK/wdk-protocol-bridges-swapdk/issues"
+  },
+  "homepage": "https://swapdk.com",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "zod": "^3.22 || ^4"
+  }
+}

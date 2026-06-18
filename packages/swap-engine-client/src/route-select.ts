@@ -1,4 +1,4 @@
-import type { QuoteRoute } from "./http-types.js";
+import type { QuoteRoute } from "./http-schemas.js";
 
 /**
  * Pick the best route from a quote response.

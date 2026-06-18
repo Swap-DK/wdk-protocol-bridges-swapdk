@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { SwapDKClient } from "@swapdk/wdk-protocol-bridge-swapdk-common";
-import { SwapDKApiError, SwapDKNetworkError } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+import { SwapDKClient } from "@swapdk/swap-engine-client";
+import { SwapDKApiError, SwapDKNetworkError } from "@swapdk/swap-engine-client";
 
 const API_URL = "https://api.swapdk.test";
 const API_KEY = "test-key";

@@ -1,14 +1,14 @@
 export { SwapDKBridgeEvm } from "./SwapDKBridgeEvm.js";
 export type { WaitForBridgeOptions } from "./SwapDKBridgeEvm.js";
 export { SwapDKSwapEvm } from "./SwapDKSwapEvm.js";
-export { SwapDKClient } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+export { SwapDKClient } from "@swapdk/swap-engine-client";
 export {
   SwapDKError,
   SwapDKNetworkError,
   SwapDKApiError,
   SwapDKProviderError,
   SwapDKUserError,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 // Re-export standard WDK protocol types
 export type {
@@ -43,7 +43,7 @@ export type {
   TrackLeg,
   TrackMeta,
   TrackStatus,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 // EVM-specific (NATIVE_ADDRESS = 0x000…)
 export {
@@ -66,5 +66,5 @@ export {
   KNOWN_TOKENS,
   lookupToken,
   registerToken,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
-export type { KnownToken } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
+export type { KnownToken } from "@swapdk/swap-engine-client";

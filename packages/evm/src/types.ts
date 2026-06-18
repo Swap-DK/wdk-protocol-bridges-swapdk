@@ -88,6 +88,14 @@ export interface SwapDKBridgeResult extends BridgeResult {
   tokenOutAmount: bigint;
   /** ERC-20 approve tx hash, if an approval was needed. */
   approveHash?: string;
+  /**
+   * SwapKit asset string identifying which currency `bridgeFee` is
+   * denominated in (e.g. `"ETH.USDC-0xA0b…"`). For cross-asset routes
+   * the fee asset can differ from both source and destination — UIs
+   * need this to format the fee correctly. `undefined` when the route
+   * did not surface a fee asset.
+   */
+  bridgeFeeAsset?: string;
 }
 
 /**
@@ -105,6 +113,8 @@ export interface SwapDKBridgeQuoteResult extends Omit<BridgeResult, "hash"> {
   estimatedTime?: number;
   /** Providers chosen by swap-engine (e.g. ["THORCHAIN"]). */
   providers?: string[];
+  /** See {@link SwapDKBridgeResult.bridgeFeeAsset}. */
+  bridgeFeeAsset?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -140,4 +150,4 @@ export interface EvmWalletAccount {
   waitForTransaction?(hash: string): Promise<void>;
 }
 
-// HTTP types moved to @swapdk/wdk-protocol-bridge-swapdk-common
+// HTTP types moved to @swapdk/swap-engine-client

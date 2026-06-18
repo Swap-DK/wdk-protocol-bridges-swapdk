@@ -4,14 +4,14 @@ export {
 } from "./SwapDKBridgeSolana.js";
 export type { WaitForBridgeOptions } from "./SwapDKBridgeSolana.js";
 
-export { SwapDKClient } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+export { SwapDKClient } from "@swapdk/swap-engine-client";
 export {
   SwapDKError,
   SwapDKNetworkError,
   SwapDKApiError,
   SwapDKProviderError,
   SwapDKUserError,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 // Re-export standard WDK protocol types
 export type {
@@ -43,7 +43,7 @@ export type {
   TrackLeg,
   TrackMeta,
   TrackStatus,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 // Solana-specific (NATIVE_ADDRESS = "")
 export {
@@ -67,8 +67,8 @@ export {
   KNOWN_TOKENS,
   lookupToken,
   registerToken,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
-export type { KnownToken } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
+export type { KnownToken } from "@swapdk/swap-engine-client";
 
 export { buildNativeTransferWithMemo } from "./tx-builder.js";
 export type { BuildNativeTransferWithMemoArgs } from "./tx-builder.js";

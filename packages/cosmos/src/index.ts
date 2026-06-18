@@ -3,14 +3,14 @@ export type { WaitForBridgeOptions } from "./SwapDKBridgeCosmos.js";
 
 // SwapDK shared client + errors — re-exported so callers don't need a
 // direct dependency on the common package.
-export { SwapDKClient } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+export { SwapDKClient } from "@swapdk/swap-engine-client";
 export {
   SwapDKError,
   SwapDKNetworkError,
   SwapDKApiError,
   SwapDKProviderError,
   SwapDKUserError,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 // Standard WDK protocol types — re-exported for convenience.
 export type {
@@ -41,7 +41,7 @@ export type {
   TrackLeg,
   TrackMeta,
   TrackStatus,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 // Cosmos-specific helpers (the `"native"` sentinel, the asset-string
 // resolver, and the decimals lookup).
@@ -62,4 +62,4 @@ export {
   toHumanDecimal,
   fromHumanDecimal,
   toBigInt,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";

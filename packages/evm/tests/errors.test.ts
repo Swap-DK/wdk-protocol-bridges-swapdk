@@ -5,7 +5,7 @@ import {
   SwapDKApiError,
   SwapDKProviderError,
   SwapDKUserError,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 describe("SwapDKError", () => {
   it("sets name to class name", () => {
@@ -110,9 +110,32 @@ describe("SwapDKApiError", () => {
   });
 
   describe("isAmountBelowMin", () => {
-    it("true only for /swap 422 swap_amount_below_min", () => {
+    it("true for /swap 422 swap_amount_below_min", () => {
       expect(
         new SwapDKApiError(422, "/swap", "swap_amount_below_min").isAmountBelowMin,
+      ).toBe(true);
+    });
+
+    it("true for /quote 422 quote_amount_below_min (Chainflip pre-flight)", () => {
+      // swap-engine surfaces Chainflip's broker minimum_deposit_amount
+      // rejection as a path-specific 422 on /quote so the caller can
+      // intercept it before broadcast — Chainflip retains sub-minimum
+      // deposits without refund.
+      expect(
+        new SwapDKApiError(422, "/quote", "quote_amount_below_min").isAmountBelowMin,
+      ).toBe(true);
+    });
+
+    it("true for /chainflip/broker/channel 422 broker_channel_amount_below_min", () => {
+      // When the caller hits the broker-channel endpoint directly (or
+      // via stale-route retry that didn't re-quote), the same
+      // sub-minimum gate fires there with its own errorCode.
+      expect(
+        new SwapDKApiError(
+          422,
+          "/chainflip/broker/channel",
+          "broker_channel_amount_below_min",
+        ).isAmountBelowMin,
       ).toBe(true);
     });
 
@@ -132,9 +155,20 @@ describe("SwapDKApiError", () => {
       ).toBe(false);
     });
 
-    it("false for 422 on other paths (e.g. /quote, /track)", () => {
+    it("false for cross-path errorCode mismatch", () => {
+      // Each path has its own errorCode literal — wrong combinations
+      // should not match.
       expect(
         new SwapDKApiError(422, "/quote", "swap_amount_below_min").isAmountBelowMin,
+      ).toBe(false);
+      expect(
+        new SwapDKApiError(422, "/swap", "quote_amount_below_min").isAmountBelowMin,
+      ).toBe(false);
+    });
+
+    it("false for 422 on /track", () => {
+      expect(
+        new SwapDKApiError(422, "/track", "quote_amount_below_min").isAmountBelowMin,
       ).toBe(false);
     });
 

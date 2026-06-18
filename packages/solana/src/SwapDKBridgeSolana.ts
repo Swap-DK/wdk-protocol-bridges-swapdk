@@ -17,22 +17,23 @@
 
 import { BridgeProtocol } from "@tetherto/wdk-wallet/protocols";
 
-import { SwapDKClient } from "@swapdk/wdk-protocol-bridge-swapdk-common";
 import {
-  SwapDKApiError,
+  SwapDKClient,
   SwapDKProviderError,
   SwapDKUserError,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
-import { toSwapKitAsset, resolveAssetDecimals } from "./asset-map.js";
-import {
-  NATIVE_SYMBOL,
-  wdkChainToPrefix,
   toHumanDecimal,
   fromHumanDecimal,
   pickBestRoute,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+  isTerminalTrackStatus,
+  sleep,
+  defaultBuyAsset,
+  feeAssetOfType,
+  sumFeesOfType,
+  assertAllowedSourceChain,
+} from "@swapdk/swap-engine-client";
+import type { BridgeFee, QuoteRoute, TrackResponse } from "@swapdk/swap-engine-client";
+import { toSwapKitAsset, resolveAssetDecimals } from "./asset-map.js";
 import { buildNativeTransferWithMemo } from "./tx-builder.js";
-import type { QuoteRoute, TrackResponse } from "@swapdk/wdk-protocol-bridge-swapdk-common";
 import type {
   SolanaWalletAccount,
   SwapDKBridgeConfig,
@@ -43,6 +44,7 @@ import type {
 
 const SOLANA_CHAIN = "solana";
 const SOLANA_PREFIX = "SOL";
+const SOLANA_ALLOWED_CHAINS: ReadonlySet<string> = new Set([SOLANA_CHAIN]);
 
 /**
  * Base transaction fee on Solana mainnet for our bridge tx shape.
@@ -61,16 +63,6 @@ const SOLANA_PREFIX = "SOL";
  */
 export const SOLANA_BASE_FEE_LAMPORTS = 5_000n;
 
-const TERMINAL_TRACK_STATUSES = new Set(["completed", "refunded", "failed"]);
-
-function isTerminalTrackStatus(status: string): boolean {
-  return TERMINAL_TRACK_STATUSES.has(status);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /** Options for {@link SwapDKBridgeSolana.waitForBridge}. */
 export interface WaitForBridgeOptions {
   /** Poll interval in milliseconds (default: 5_000 — Solana slots are fast). */
@@ -85,6 +77,8 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
   private readonly client: SwapDKClient;
   private readonly solanaAccount: SolanaWalletAccount;
   private readonly swapDKConfig: SwapDKBridgeConfig;
+  /** WDK source chain this instance was registered for. */
+  private sourceChain: string = SOLANA_CHAIN;
 
   constructor(account: SolanaWalletAccount, config: SwapDKBridgeConfig) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -98,11 +92,15 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
   }
 
   /**
-   * No-op for API parity with the EVM module — the source chain for
-   * `SwapDKBridgeSolana` is fixed at "solana".
+   * Set the WDK source chain. Only `"solana"` is accepted; supplied here
+   * for parity with the other bridge modules so the host's
+   * `registerProtocol(chain, …)` flow doesn't need to special-case
+   * Solana. Mismatched chains throw — silently accepting "ethereum" or
+   * any other input would let a misconfigured caller send a Solana tx
+   * shape against the wrong wallet account.
    */
-  setSourceChain(_chain: string): void {
-    // intentional: single-source module
+  setSourceChain(chain: string): void {
+    this.sourceChain = assertAllowedSourceChain(chain, SOLANA_ALLOWED_CHAINS, "Solana");
   }
 
   // -----------------------------------------------------------------
@@ -162,7 +160,7 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
     // 3. Build the transaction message (transfer + memo) and hand it to
     //    the wallet for signing + broadcast. The wallet fills in
     //    blockhash and fee payer.
-    const sellDecimals = resolveAssetDecimals(SOLANA_CHAIN, options.token);
+    const sellDecimals = resolveAssetDecimals(this.sourceChain, options.token);
     const lamports = BigInt(options.amount);
 
     const transactionMessage = buildNativeTransferWithMemo({
@@ -194,6 +192,7 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
       hash: result.hash,
       fee: result.fee ?? SOLANA_BASE_FEE_LAMPORTS,
       bridgeFee: this.sumFees(route.fees, "liquidity"),
+      bridgeFeeAsset: feeAssetOfType(route.fees, "liquidity"),
       tokenInAmount: fromHumanDecimal(route.sellAmount, sellDecimals),
       tokenOutAmount: fromHumanDecimal(route.expectedBuyAmount, buyDecimals),
     };
@@ -208,14 +207,7 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
     chainId?: string,
   ): Promise<TrackResponse | null> {
     const resolvedChainId = chainId ?? SOLANA_PREFIX;
-    try {
-      return await this.client.track({ hash, chainId: resolvedChainId });
-    } catch (err) {
-      if (err instanceof SwapDKApiError && err.isNotFound) {
-        return null;
-      }
-      throw err;
-    }
+    return this.client.trackOrNotFound({ hash, chainId: resolvedChainId });
   }
 
   // -----------------------------------------------------------------
@@ -262,12 +254,12 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
   ): Promise<QuoteRoute> {
     const addr = sourceAddressOverride ?? await this.solanaAccount.getAddress();
 
-    const sellAsset = toSwapKitAsset(options.token, SOLANA_CHAIN);
+    const sellAsset = toSwapKitAsset(options.token, this.sourceChain);
     const buyAsset = options.tokenOut
       ? toSwapKitAsset(options.tokenOut, options.targetChain)
-      : this.defaultBuyAsset(options.targetChain);
+      : defaultBuyAsset(options.targetChain);
 
-    const sellDecimals = resolveAssetDecimals(SOLANA_CHAIN, options.token);
+    const sellDecimals = resolveAssetDecimals(this.sourceChain, options.token);
 
     const quoteRes = await this.client.quote({
       sellAsset,
@@ -290,15 +282,6 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
     return best;
   }
 
-  private defaultBuyAsset(targetChain: string): string {
-    const prefix = wdkChainToPrefix(targetChain);
-    const symbol = NATIVE_SYMBOL[prefix];
-    if (!symbol) {
-      throw new SwapDKUserError(`No default buy asset for chain: ${targetChain}`);
-    }
-    return `${prefix}.${symbol}`;
-  }
-
   private assertFeeWithinLimit(fee: bigint): void {
     const limit = this.swapDKConfig.bridgeMaxFee;
     if (limit === undefined) return;
@@ -313,7 +296,7 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
     route: QuoteRoute,
     options: SwapDKBridgeOptions,
   ): SwapDKBridgeQuoteResult {
-    const sellDecimals = resolveAssetDecimals(SOLANA_CHAIN, options.token);
+    const sellDecimals = resolveAssetDecimals(this.sourceChain, options.token);
     const buyDecimals = resolveAssetDecimals(options.targetChain, options.tokenOut);
     const bridgeFee = this.sumFees(route.fees, "liquidity");
 
@@ -324,36 +307,29 @@ export class SwapDKBridgeSolana extends BridgeProtocol {
       // is enforceable pre-broadcast against the same constant.
       fee: SOLANA_BASE_FEE_LAMPORTS,
       bridgeFee,
+      bridgeFeeAsset: feeAssetOfType(route.fees, "liquidity"),
       tokenInAmount: fromHumanDecimal(route.sellAmount, sellDecimals),
       tokenOutAmount: fromHumanDecimal(route.expectedBuyAmount, buyDecimals),
       estimatedTime: route.estimatedTime?.total,
       providers: route.providers,
       inboundAddress: route.inboundAddress,
       memo: route.memo,
-      expiration: route.expiration ? Number(route.expiration) : undefined,
+      expiration: route.expiration,
     };
   }
 
+  /** Sum the route's liquidity-type fees with Solana's 9-decimal fallback (lamports). */
   private sumFees(
-    fees: Array<{ type: string; amount: string; asset?: string }>,
+    fees: BridgeFee[],
     feeType: string,
   ): bigint {
-    return fees
-      .filter((f) => f.type === feeType)
-      .reduce((sum, f) => {
-        let decimals = 18;
-        if (f.asset) {
-          try {
-            decimals = resolveAssetDecimals(SOLANA_CHAIN, f.asset);
-          } catch {
-            // unknown asset — 18 is a reasonable default.
-          }
-        }
-        try {
-          return sum + fromHumanDecimal(f.amount, decimals);
-        } catch {
-          return sum;
-        }
-      }, 0n);
+    return sumFeesOfType(fees, feeType, {
+      resolveDecimals: resolveAssetDecimals,
+      sourceChain: this.sourceChain,
+      // Solana native is 9 (lamports); the previous 18 default was an
+      // EVM-style leftover that would silently under-count any fee
+      // whose asset is missing or unrecognised.
+      fallbackDecimals: 9,
+    });
   }
 }

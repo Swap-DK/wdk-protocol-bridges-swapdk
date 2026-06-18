@@ -2,7 +2,7 @@
 // EVM-specific asset mapping. Cross-chain primitives (CHAIN_MAP, decimal
 // tables, helpers like `parseSwapKitAsset` / `toHumanDecimal` /
 // `fromHumanDecimal`, registry lookup) all live in
-// `@swapdk/wdk-protocol-bridge-swapdk-common`. What's here is only the
+// `@swapdk/swap-engine-client`. What's here is only the
 // EVM-source-specific bits: the zero-address marker for native gas
 // tokens, and the helpers that branch on it.
 // ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ import {
   parseSwapKitAsset,
   prefixToWdkChain,
   wdkChainToPrefix,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 export const NATIVE_ADDRESS = "0x0000000000000000000000000000000000000000";
 

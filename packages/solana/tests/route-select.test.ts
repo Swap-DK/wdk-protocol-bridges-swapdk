@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickBestRoute } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+import { pickBestRoute } from "@swapdk/swap-engine-client";
 import type { QuoteRoute } from "../src/types.js";
 
 function route(expectedBuyAmount: string, routeId = "r"): QuoteRoute {

@@ -18,16 +18,22 @@ import {
   SwapDKApiError,
   SwapDKProviderError,
   SwapDKUserError,
-  NATIVE_SYMBOL,
   wdkChainToPrefix,
   toHumanDecimal,
   fromHumanDecimal,
   pickBestRoute,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+  isTerminalTrackStatus,
+  sleep,
+  defaultBuyAsset,
+  feeAssetOfType,
+  sumFeesOfType,
+  assertAllowedSourceChain,
+} from "@swapdk/swap-engine-client";
 import type {
+  BridgeFee,
   QuoteRoute,
   TrackResponse,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 import { toSwapKitAsset, resolveAssetDecimals } from "./asset-map.js";
 import type {
@@ -40,15 +46,6 @@ import type {
 
 const DEFAULT_SOURCE_CHAIN = "thorchain";
 const SUPPORTED_SOURCE_CHAINS = new Set(["thorchain", "mayachain"]);
-const TERMINAL_TRACK_STATUSES = new Set(["completed", "refunded", "failed"]);
-
-function isTerminalTrackStatus(status: string): boolean {
-  return TERMINAL_TRACK_STATUSES.has(status);
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
 
 /** Options for {@link SwapDKBridgeCosmos.waitForBridge}. */
 export interface WaitForBridgeOptions {
@@ -87,14 +84,7 @@ export class SwapDKBridgeCosmos extends BridgeProtocol {
    * defaults to `"thorchain"`.
    */
   setSourceChain(chain: string): void {
-    const lower = chain.toLowerCase();
-    if (!SUPPORTED_SOURCE_CHAINS.has(lower)) {
-      throw new SwapDKUserError(
-        `Unsupported Cosmos source chain: ${chain}. ` +
-          `Expected "thorchain" or "mayachain".`,
-      );
-    }
-    this.sourceChain = lower;
+    this.sourceChain = assertAllowedSourceChain(chain, SUPPORTED_SOURCE_CHAINS, "Cosmos");
   }
 
   // -----------------------------------------------------------------
@@ -210,6 +200,7 @@ export class SwapDKBridgeCosmos extends BridgeProtocol {
       hash: txResult.hash,
       fee: txResult.fee,
       bridgeFee,
+      bridgeFeeAsset: feeAssetOfType(swapRes.fees, "liquidity"),
       tokenInAmount,
       tokenOutAmount,
     };
@@ -265,14 +256,7 @@ export class SwapDKBridgeCosmos extends BridgeProtocol {
     chainId?: string,
   ): Promise<TrackResponse | null> {
     const resolvedChainId = chainId ?? wdkChainToPrefix(this.sourceChain);
-    try {
-      return await this.client.track({ hash, chainId: resolvedChainId });
-    } catch (err) {
-      if (err instanceof SwapDKApiError && err.isNotFound) {
-        return null;
-      }
-      throw err;
-    }
+    return this.client.trackOrNotFound({ hash, chainId: resolvedChainId });
   }
 
   // -----------------------------------------------------------------
@@ -330,7 +314,7 @@ export class SwapDKBridgeCosmos extends BridgeProtocol {
     const sellAsset = toSwapKitAsset(options.token, this.sourceChain);
     const buyAsset = options.tokenOut
       ? this.normaliseBuyAsset(options.tokenOut, options.targetChain)
-      : this.defaultBuyAsset(options.targetChain);
+      : defaultBuyAsset(options.targetChain);
 
     const sellDecimals = resolveAssetDecimals(this.sourceChain, sellAsset);
 
@@ -366,16 +350,6 @@ export class SwapDKBridgeCosmos extends BridgeProtocol {
     if (token.includes(".")) return token;
     const prefix = wdkChainToPrefix(targetChain);
     return `${prefix}.${token}`;
-  }
-
-  /** Default `buyAsset` is the native gas token of the target chain. */
-  private defaultBuyAsset(targetChain: string): string {
-    const prefix = wdkChainToPrefix(targetChain);
-    const symbol = NATIVE_SYMBOL[prefix];
-    if (!symbol) {
-      throw new SwapDKUserError(`No default buy asset for chain: ${targetChain}`);
-    }
-    return `${prefix}.${symbol}`;
   }
 
   /**
@@ -421,6 +395,7 @@ export class SwapDKBridgeCosmos extends BridgeProtocol {
       // the WDK contract still resolves.
       fee: 0n,
       bridgeFee,
+      bridgeFeeAsset: feeAssetOfType(route.fees, "liquidity"),
       tokenInAmount: fromHumanDecimal(route.sellAmount, sellDecimals),
       tokenOutAmount: fromHumanDecimal(route.expectedBuyAmount, buyDecimals),
       estimatedTime: route.estimatedTime?.total,
@@ -428,32 +403,15 @@ export class SwapDKBridgeCosmos extends BridgeProtocol {
     };
   }
 
-  /**
-   * Sum fees of a given type, best-effort.
-   *
-   * swap-engine returns fee amounts as human-decimal strings tagged with
-   * a SwapKit `asset` field. Decimals are derived from the asset; unknown
-   * assets default to the source-chain native (8 for THOR, 10 for MAYA).
-   * Unparseable entries are skipped — the returned value is informational.
-   */
+  /** Sum the route's liquidity-type fees with cosmos's 8-decimal fallback (RUNE precision). */
   private sumFees(
-    fees: Array<{ type: string; amount: string; asset?: string }>,
+    fees: BridgeFee[],
     feeType: string,
   ): bigint {
-    return fees
-      .filter((f) => f.type === feeType)
-      .reduce((sum, f) => {
-        let decimals: number;
-        try {
-          decimals = resolveAssetDecimals(this.sourceChain, f.asset);
-        } catch {
-          decimals = 8; // Conservative fallback (RUNE precision).
-        }
-        try {
-          return sum + fromHumanDecimal(f.amount, decimals);
-        } catch {
-          return sum;
-        }
-      }, 0n);
+    return sumFeesOfType(fees, feeType, {
+      resolveDecimals: resolveAssetDecimals,
+      sourceChain: this.sourceChain,
+      fallbackDecimals: 8,
+    });
   }
 }

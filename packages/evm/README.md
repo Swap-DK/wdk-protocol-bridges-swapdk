@@ -343,7 +343,7 @@ Correctness at the swap-engine HTTP boundary:
 
 - [ ] `@swapdk/wdk-protocol-bridge-swapdk-btc` — BTC as source chain. **Blocked** on upstream `@tetherto/wdk-wallet-btc` lacking OP_RETURN support in `sendTransaction`; THORChain routing won't work without it. Full research: [docs/research-btc-source.md](./docs/research-btc-source.md).
 - [x] **`@swapdk/wdk-protocol-bridge-swapdk-solana`** — Solana as source chain. Initial 0.1.0 scaffold shipped: native SOL → any destination via THORChain, with `trackBridge` / `waitForBridge` / `registerToken`. SPL source pending. Lives in a sibling repo.
-- [ ] `@swapdk/wdk-protocol-bridge-swapdk-tron` — TRON as source chain
+- [ ] `@swapdk/wdk-protocol-bridge-swapdk-tron` — TRON as source chain. **Blocked** on two layers: (1) swap-engine doesn't dispatch TRON in `utils/swap_engine.go` (TRON is in none of the `isEvmChain` / `isUtxoChain` / `isCosmosChain` predicates), (2) `@tetherto/wdk-wallet-tron@1.0.0-beta.5` has no `callContract` method — only plain TRX transfers and hardcoded TRC-20 `transfer(address,uint256)`. Full research: [docs/research-tron-source.md](./docs/research-tron-source.md).
 - [ ] Streaming swaps support (THORChain DCA parameters)
 - [ ] On-chain ERC-20 symbol resolution for tokens outside the registry (automated fallback; complements `registerToken()`)
 

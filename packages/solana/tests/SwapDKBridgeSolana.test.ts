@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SwapDKBridgeSolana } from "../src/SwapDKBridgeSolana.js";
 import { BridgeProtocol } from "@tetherto/wdk-wallet/protocols";
-import { SwapDKUserError, SwapDKApiError } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+import { SwapDKUserError, SwapDKApiError } from "@swapdk/swap-engine-client";
 import type { SolanaWalletAccount, SwapDKBridgeConfig, TrackResponse } from "../src/types.js";
 
 const SOURCE_ADDR = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU";
@@ -143,7 +143,9 @@ describe("SwapDKBridgeSolana", () => {
       expect(result.fee).toBe(5_000n);                    // SOLANA_BASE_FEE_LAMPORTS
       expect(result.inboundAddress).toBe(INBOUND_VAULT);
       expect(result.memo).toContain("=:e:");
-      expect(result.expiration).toBe(1776954529);
+      // expiration is now passed through as a string (was Number()'d
+      // before — drift with BTC/Cosmos that always shipped string).
+      expect(result.expiration).toBe("1776954529");
       expect(result.estimatedTime).toBe(60);
       expect(result.providers).toEqual(["THORCHAIN"]);
     });

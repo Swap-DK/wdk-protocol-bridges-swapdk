@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { SwapDKBridgeEvm } from "../src/SwapDKBridgeEvm.js";
 import { BridgeProtocol } from "@tetherto/wdk-wallet/protocols";
-import { SwapDKUserError } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+import { SwapDKUserError } from "@swapdk/swap-engine-client";
 import type { EvmWalletAccount, SwapDKBridgeConfig } from "../src/types.js";
 
 // --- Helpers ----------------------------------------------------------------

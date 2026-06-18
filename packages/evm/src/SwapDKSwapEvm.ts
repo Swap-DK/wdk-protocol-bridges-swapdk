@@ -14,12 +14,11 @@ import {
   SwapDKApiError,
   SwapDKProviderError,
   SwapDKUserError,
-  wdkChainToPrefix,
   toHumanDecimal,
   fromHumanDecimal,
   pickBestRoute,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
-import type { QuoteRoute } from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
+import type { QuoteRoute } from "@swapdk/swap-engine-client";
 import { toSwapKitAsset, resolveAssetDecimals } from "./asset-map.js";
 import { txHash, estimateFeeWei } from "./internal.js";
 import type {

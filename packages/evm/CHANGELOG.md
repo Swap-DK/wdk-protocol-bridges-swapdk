@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.1
+
+### Patch Changes
+
+- e82db4d: Rename `@swapdk/wdk-protocol-bridge-swapdk-common` → `@swapdk/swap-engine-client`; add zod-validated response parsing.
+
+  **Two coordinated changes:**
+
+  1. **Rename.** The shared infrastructure package drops the `wdk-protocol-bridge-swapdk-` prefix to reflect that it is now consumed by both SwapDK distribution channels (WDK protocol bridges in this monorepo, plus the wagmi-native `@swapdk/wagmidk`). The `"internal"` keyword and the "Not intended to be consumed directly" framing are removed. All five bridge packages cascade-update their `dependencies` to the new name; public re-export shape is unchanged (`SwapDKClient`, `KnownToken`, error classes, etc. continue to be available through each bridge's package).
+
+  2. **zod validation at the HTTP boundary.** `http-types.ts` is rewritten as `http-schemas.ts` — zod schemas are the source of truth, TypeScript types derived via `z.infer<typeof Schema>` and exported under the same names. `SwapDKClient` calls `.safeParse()` on every `/quote`, `/swap`, `/track`, and `/chainflip/broker/channel` response and throws `SwapDKApiError(errorCode: "response_schema_mismatch", cause: ZodError)` on shape mismatch, with the first failed field path included in the error message. Bridge packages inherit this validation transitively without code changes.
+
+  **Rationale.** Lives in the WagmiDK repository (adr-kit not adopted here): `../wagmidk/docs/adr/ADR-008-swap-engine-client-rename.md` and `../wagmidk/docs/adr/ADR-009-zod-http-validation.md`. Cross-cutting cycle entry in this repo's `STATUS.md` (2026-06-16).
+
+  **Behavioural change to watch for:** edge cases where swap-engine previously returned malformed responses that the `as`-cast tolerated will now throw `SwapDKApiError` at the boundary. Strictly an improvement (loud failure beats silent corruption); operators should monitor for `response_schema_mismatch` errorCodes on first deploy and report any genuine swap-engine shape drift back to the swap-engine team.
+
+- Updated dependencies [e82db4d]
+  - @swapdk/swap-engine-client@0.2.0
+
 All notable changes to `@swapdk/wdk-protocol-bridge-swapdk-evm` are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
@@ -9,6 +28,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [Unreleased]
 
 ### Added
+
 - **`SwapDKApiError.isProviderUnsupported`** — getter that's `true` only for `/swap` 422 with `swapProviderUnsupported` errorCode. Pairs with the recent swap-engine fix that splits "routeId references a provider this engine doesn't implement" out of the catch-all 502. Use it to surface "this route can't be executed, pick a different provider" cleanly without retry.
 - **`registerToken(chain, address, { symbol, decimals })`** — runtime extension of the known-token registry. Use this to support ERC-20s that aren't shipped in `src/known-tokens.ts`. Validates the input synchronously (`0x` + 40 hex, non-empty symbol, decimals ∈ [0, 77]) and normalises address to lowercase, symbol to uppercase. Module-level singleton — visible to every `SwapDKBridgeEvm` / `SwapDKSwapEvm` in the process. Successful registration does not guarantee backend routability.
 - **Bridge tracking API.** Wraps swap-engine's `/track` endpoint for THORChain and MAYAChain routes.
@@ -20,6 +40,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Note: tracking is limited to THORChain and MAYAChain on the swap-engine side. Chainflip-routed bridges return `null`.
 
 ### Changed
+
 - `SwapDKClient` error parser now also reads the `"error"` field (used by `/track`) in addition to the existing `"errorCode"` (used by `/quote` and `/swap`). This lets `SwapDKApiError.errorCode` carry the backend's semantic code across all endpoints.
 - `SwapDKApiError.isStaleRoute` is now scoped to the `/swap` path only. Previously it matched any 404/410 regardless of path, which was incorrect once `/track` also began returning 404 with different semantics.
 
@@ -28,6 +49,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [1.0.0] — 2026-04-22
 
 ### Added
+
 - **Known-token registry (`known-tokens.ts`)** — hardcoded map of canonical ERC-20 addresses to `{ symbol, decimals }` per supported chain (Ethereum, Arbitrum, Base, BSC, Avalanche, Optimism, Polygon). Covers USDC (incl. bridged variants), USDT, WETH/WBNB/WAVAX/WMATIC, WBTC, DAI.
 - **Amount conversion primitives** (`asset-map.ts`):
   - `NATIVE_DECIMALS` table per SwapKit chain prefix
@@ -42,6 +64,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `LICENSE` (MIT), `.npmignore`, `.editorconfig`
 
 ### Changed
+
 - **Amount-format contract at the HTTP boundary.** `SwapDKBridgeEvm` and `SwapDKSwapEvm` now convert WDK `bigint` amounts (in native decimals) to human-decimal strings before calling swap-engine's `/quote` and parse response amounts back via `fromHumanDecimal`. Previously the client sent wei-style integers and parsed responses with `toBigInt` (truncation), producing amounts that were off by `10^18` for cross-chain and in the wrong asset's decimals for same-chain.
 - **ERC-20 asset notation now carries the real symbol** (`ETH.USDC-0xAddr`, not `ETH.ETH-0xAddr`). swap-engine's `ConvertToChainflipFormat` strips the `-0xAddress` suffix and routes on the symbol alone; placeholder symbols led to silent misrouting.
 - `tsconfig.json`: `module` and `moduleResolution` changed from `ESNext`/`bundler` to `nodenext` — enforces correct Node.js ESM resolution semantics
@@ -51,11 +74,13 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `prepack` now runs `clean && build` so stale artifacts from removed files never ship
 
 ### Removed
+
 - `TokenRegistry` and `/tokenlists/:chain` client method — the endpoint was never implemented in swap-engine. Symbol resolution now happens client-side via the known-token registry.
 - `needsSymbolResolution()` helper, `TokenListToken`, `TokenListResponse` types
 - `viem` from peerDependencies (no viem imports anywhere in the package)
 
 ### Fixed
+
 - `toBigInt()` helper for swap-engine amounts — swap-engine returns decimal strings; `BigInt()` rejects decimals, so amounts are now truncated to integer part.
 - `examples/wdk-app.ts` — fixed imports from non-existent `@tetherto/wdk-core` to real `@tetherto/wdk` and switched to importing from the package name rather than `../src`
 - End-to-end amounts verified: `quoteBridge 0.01 ETH → BTC` returns `~30,581 sat` (was `3.04 × 10^14`); `quoteSwap 100 USDC → ETH` returns `~0.0416 ETH in wei` (was `~100 USDC-denominated nonsense`).
@@ -65,6 +90,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.4.0] — Swap protocol support
 
 ### Added
+
 - `SwapDKSwapEvm` — WDK `SwapProtocol` implementation for same-chain EVM swaps (e.g. USDC → WETH on Ethereum)
 - `quoteSwap()` and `swap()` methods with full ERC-20 approval handling
 - Re-quote on stale `routeId` in `swap()`, mirroring bridge behaviour
@@ -73,6 +99,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Unit tests for `SwapDKSwapEvm` — 95%+ branch coverage
 
 ### Changed
+
 - `SwapDKBridgeConfig` extended with `swapMaxFee` option
 - `index.ts`: exports `SwapDKSwapEvm` and `SwapDKSwapResult`
 - README: added same-chain swap quick start, WDK dual-registration example
@@ -82,6 +109,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.3.0] — Production hardening
 
 ### Added
+
 - Re-quote on stale `routeId`: if `/swap` returns 404/410 or `STALE_ROUTE`, the bridge automatically re-quotes once and retries
 - `bridgeMaxFee` enforcement — throws `SwapDKUserError` before sending any transaction when estimated gas exceeds the limit
 - HTTP timeout via `AbortSignal.timeout()` (default 10 s, configurable via `timeoutMs`)
@@ -90,6 +118,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `SwapDKApiError.isStaleRoute` property for route-expiry detection
 
 ### Changed
+
 - `SwapDKClient`: merged duplicate `get`/`post` into a single `request<T>()` method; fixed body-consumed bug (reads `text()` first, then `JSON.parse()`)
 - `NATIVE_ADDRESS`, `NATIVE_SYMBOL`: consolidated in `asset-map.ts` (removed duplication)
 - `defaultBuyAsset()`: uses `NATIVE_SYMBOL` map — adding a new chain to the map now covers both bridge and asset resolution automatically
@@ -99,6 +128,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.2.0] — Testing & WDK integration
 
 ### Added
+
 - Unit tests for `asset-map`, `SwapDKClient`, `SwapDKBridgeEvm` — 95%+ branch coverage
 - `SwapDKBridgeEvm` extends `BridgeProtocol` from `@tetherto/wdk-wallet/protocols`
 - SwapDK-specific types (`SwapDKBridgeOptions`, `SwapDKBridgeResult`, `SwapDKBridgeQuoteResult`) extend WDK base types
@@ -109,6 +139,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ## [0.1.0] — Foundation
 
 ### Added
+
 - `SwapDKBridgeEvm` with `bridge()` and `quoteBridge()`
 - HTTP client for swap-engine `/quote` and `/swap` endpoints (native `fetch`, no external HTTP library)
 - Asset mapping: WDK token addresses → SwapKit notation (`ETH.USDC-0xAddress`)

@@ -2,7 +2,7 @@
 // Solana-specific asset mapping. Cross-chain primitives (CHAIN_MAP,
 // decimal tables, helpers like `parseSwapKitAsset` / `toHumanDecimal` /
 // `fromHumanDecimal`, registry lookup, `isLikelySolanaAddress`) all
-// live in `@swapdk/wdk-protocol-bridge-swapdk-common`. What's here is
+// live in `@swapdk/swap-engine-client`. What's here is
 // only the Solana-source-specific bits: the empty-string marker for
 // native SOL, and the helpers that branch on it.
 // ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ import {
   parseSwapKitAsset,
   prefixToWdkChain,
   wdkChainToPrefix,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 /**
  * Marker value that means "native SOL" as the source asset.

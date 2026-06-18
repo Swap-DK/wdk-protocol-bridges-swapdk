@@ -4,6 +4,20 @@ This file tracks **monorepo-level** changes (structural, tooling, CI). Per-packa
 
 ---
 
+## 2026-06-16 — `swap-engine-client` rename + zod runtime validation
+
+Structural rename of the shared infrastructure package and adoption of zod for runtime response validation. Driven by the cross-channel integration with `@swapdk/wagmidk` (see that repo's `docs/adr/ADR-008-swap-engine-client-rename.md` and `ADR-009-zod-http-validation.md` for the rationale; adr-kit not adopted in this monorepo).
+
+- `packages/common/` → `packages/swap-engine-client/` (directory rename preserved via `git mv`).
+- Package coordinate: `@swapdk/wdk-protocol-bridge-swapdk-common` → `@swapdk/swap-engine-client`. The `"internal"` keyword and the "Not intended to be consumed directly" framing are removed — the package is now first-class shared infrastructure consumed by both distribution channels (WDK bridges here + the wagmi-native `@swapdk/wagmidk`).
+- `src/http-types.ts` rewritten as `src/http-schemas.ts`: zod schemas are now authoritative; TypeScript types derived via `z.infer<typeof Schema>` and exported under the same names. Consumer imports unchanged.
+- `SwapDKClient` parses every `/quote`, `/swap`, `/track`, `/chainflip/broker/channel` response via `.safeParse()`; shape mismatch throws `SwapDKApiError(errorCode: "response_schema_mismatch", cause: ZodError)`.
+- Cascade: 5 bridge packages updated their `dependencies` field + source imports; tsconfig project references updated; one-time test fixtures cleaned up to provide complete shapes (previously partial mocks slipped past `as`-cast).
+- Version + changelog discipline: changeset under `.changeset/swap-engine-client-rename-and-zod.md` declares `minor` for `swap-engine-client` and `patch` for the 5 bridges; `changeset version` materialises the bumps on release.
+- Downstream impact: bridge packages' public re-export shapes are unchanged; existing consumers of `@swapdk/wdk-protocol-bridge-swapdk-*` are not broken. The smoke harness at `../example-wdk-wallet` declares a `file:` dependency on the old `packages/common/` path and needs a paired update in its own repo before the rename ships.
+
+---
+
 ## 2026-04-27 — Monorepo bootstrap
 
 Pre-publish consolidation of the EVM and Solana protocol packages, originally developed in separate repositories, into this monorepo.

@@ -5,7 +5,7 @@ import {
   SwapDKApiError,
   SwapDKProviderError,
   SwapDKUserError,
-} from "@swapdk/wdk-protocol-bridge-swapdk-common";
+} from "@swapdk/swap-engine-client";
 
 describe("SwapDKError", () => {
   it("sets name to class name", () => {
