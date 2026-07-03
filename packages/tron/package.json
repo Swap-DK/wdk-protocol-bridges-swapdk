@@ -1,6 +1,6 @@
 {
   "name": "@swapdk/wdk-protocol-bridge-swapdk-tron",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "WDK bridge protocol module for cross-chain swaps from TRON as source chain via SwapDK swap-engine + THORChain (router-contract pattern).",
   "type": "module",
   "main": "dist/index.js",
@@ -50,7 +50,7 @@
   },
   "peerDependencies": {
     "@tetherto/wdk-wallet": "^1.0.0-beta.7",
-    "@swapdk/wdk-wallet-tron": "^0.1.0"
+    "@swapdk/wdk-wallet-tron": "^0.2.0"
   },
   "devDependencies": {
     "@tetherto/wdk": "^1.0.0-beta.7",

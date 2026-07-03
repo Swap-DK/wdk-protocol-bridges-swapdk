@@ -1,5 +1,17 @@
 # @swapdk/swap-engine-client
 
+## 0.2.1
+
+### Patch Changes
+
+- ec4264f: Add optional `memo` field to `SwapTx` schema for the TRON direct-vault deposit path.
+
+  When THORChain has the TRON pool unhalted for trading but the router contract isn't deployed (transitional state observed mid-2026), swap-engine's TRON dispatch emits a `SwapTx` with `data: ""` and `memo` populated with the routing instruction. Downstream wallets embed this string into the TransferContract's `raw_data.data` field — the TVM equivalent of a Bitcoin OP_RETURN memo. The router-based path (contract call with `data` populated) is unchanged and remains the preferred flow when the router is available.
+
+  **Additive change.** The `memo` field is `z.string().optional()`; existing consumers that don't inspect it are unaffected. EVM, Cosmos, and TRON-router SwapTx payloads continue to leave the field empty.
+
+  **Rationale.** Cross-cutting entry in this repo's `STATUS.md` (2026-06-24) documents the direct-vault fallback design; the server-side dispatch lives in swap-engine commit `f06e3d5`.
+
 ## 0.2.0
 
 ### Minor Changes

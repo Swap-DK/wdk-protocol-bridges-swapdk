@@ -3,7 +3,7 @@
 Shared HTTP client + zod-validated wire schemas for the SwapDK [`swap-engine`](https://swapdk.com) REST API. Consumed by every SwapDK distribution channel:
 
 - The WDK protocol bridge family in this monorepo (`@swapdk/wdk-protocol-bridge-swapdk-*`).
-- The wagmi-native React library [`@swapdk/wagmidk`](https://gitlab.com/zoiex/swapdk/wagmidk).
+- The wagmi-native React library [`@swapdk/wagmidk`](https://github.com/Swap-DK/wagmidk).
 
 > **Renamed in 0.2.0.** Previously published as `@swapdk/wdk-protocol-bridge-swapdk-common` (last version: 0.1.11). The old name was marked `"internal"`; the rename reflects that the package is now first-class shared infrastructure used by both distribution channels. See [`STATUS.md`](../../STATUS.md) (entry dated 2026-06-16) and `../../../wagmidk/docs/adr/ADR-008-swap-engine-client-rename.md` for the rationale.
 

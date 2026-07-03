@@ -111,6 +111,15 @@ const SwapTxSchema = z.object({
   gasPrice: z.string().optional(),
   /** TRON only — SUN cap on energy. EVM routes leave it empty. */
   feeLimit: z.string().optional(),
+  /**
+   * TRON-only direct-vault-deposit path: when THORChain has the TRON
+   * pool unhalted but no router contract deployed, swap-engine emits
+   * a SwapTx with `data` empty and `memo` set to the routing string.
+   * The wallet writes this into the TransferContract's
+   * `raw_data.data` field (TVM equivalent of a Bitcoin OP_RETURN).
+   * Empty / absent on the EVM, Cosmos, and TRON-router paths.
+   */
+  memo: z.string().optional(),
 });
 
 const ApprovalTxSchema = z.object({

@@ -122,18 +122,26 @@ export interface TronWalletAccount {
   /**
    * Sign and broadcast a TRON transaction.
    *
-   * Two modes:
+   * Three modes:
    * - Plain TRX transfer: `{ to, value }`. No `data` / `feeLimit`.
    * - Smart-contract call (router deposit, TRC-20 approve, …):
    *   `{ to, value, data, feeLimit }` where `data` is the full
    *   ABI-encoded calldata (selector + args) and `feeLimit` caps SUN
    *   spent on energy. `value` becomes callValue.
+   * - TransferContract with memo (THORChain inbound-vault deposit
+   *   when the router contract isn't deployed): `{ to, value, memo }`
+   *   where `memo` is the THORChain routing instruction. The wallet
+   *   embeds it into the tx's `raw_data.data` field (the TVM
+   *   equivalent of a BTC OP_RETURN). `data` MUST be unset for this
+   *   path — if both are passed the wallet falls back to the
+   *   contract-call path.
    */
   sendTransaction(options: {
     to: string;
     value?: bigint;
     data?: string;
     feeLimit?: bigint;
+    memo?: string;
   }): Promise<{ hash: string; fee: bigint }>;
 
   /**

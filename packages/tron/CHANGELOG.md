@@ -1,5 +1,24 @@
 # @swapdk/wdk-protocol-bridge-swapdk-tron
 
+## 0.2.0
+
+### Minor Changes
+
+- ec4264f: Direct-vault deposit dispatch for TRON when THORChain's router contract is missing from `inbound_addresses`.
+
+  `SwapDKBridgeTron.bridge()` now recognises the new `SwapTx` shape emitted by swap-engine when `inb.Router` is empty for a native TRX sell: `data: ""`, `memo: <THORChain routing instruction>`, `to: <inbound vault base58>`. The bridge module passes `tx.memo` through to `wallet.sendTransaction({ to, value, data, feeLimit, memo })` verbatim; the wallet's `_buildTronTransaction` dispatches on which of `{data, memo}` is set — contract call vs. `TransferContract` with memo embedded in `raw_data.data`.
+
+  The router-based path (TRC-20 + native TRX when router IS deployed) is unchanged. TRC-20 sells with no router available still surface as `swap_route_unavailable` upstream — direct-vault only encodes the native asset (TRC-20 transfers require the router's `depositWithExpiry` calldata to carry the asset reference).
+
+  **Peer-dep upgrade.** `@swapdk/wdk-wallet-tron` peer range moves from `^0.1.0` to `^0.2.0`. An older wallet without memo support would silently drop the field and send a plain `TransferContract` without routing — losing the funds to an untracked vault deposit. Hard-pinning to `^0.2.0` makes the mismatch a compile-time / install-time error rather than a runtime funds-loss.
+
+  **Behavioural change to watch for:** end-to-end tests that mocked the swap-engine `/swap` response now need to accept both shapes (router-based and direct-vault). See `packages/tron/tests/SwapDKBridgeTron.test.ts` for the new `makeSwapResponseTrxDirectVault` fixture and the `"bridge — native TRX, direct-vault path"` describe block.
+
+  **Rationale.** THORChain mid-2026 lifted the TRON `chain_trading_paused` flag without redeploying the router contract; native TRX inbound still works via a plain `TransferContract` to the vault with the memo carried in `raw_data.data` (the TVM equivalent of Bitcoin's OP_RETURN pattern). Verified end-to-end on mainnet on 2026-07-03: 20 TRX → 0.00382797 ETH (TRON tx `f80d4b2b8788b026ef294dfd1bc287ee1dc1e48b7af6466046e299f4c10e2ab8` → ETH outbound `2af64ace8f76615f081de3b7d8466222ea6330d57568eaa8c166d6a016bbe797`).
+
+- Updated dependencies [ec4264f]
+  - @swapdk/swap-engine-client@0.2.1
+
 ## 0.1.1
 
 ### Patch Changes

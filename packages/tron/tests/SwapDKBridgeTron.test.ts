@@ -120,6 +120,39 @@ function makeSwapResponseTrx(overrides: Record<string, unknown> = {}) {
   };
 }
 
+// Fixture for /swap response — direct-vault deposit shape used when
+// THORChain has the TRON pool unhalted for trading but no router
+// contract deployed. tx.data is empty, tx.memo carries the routing
+// instruction, and tx.to is the vault (not a router).
+const SAMPLE_VAULT = "TN6WohfEwrrrSed2PzsjJMNHLaqVGHceLt";
+const SAMPLE_MEMO = "=:e:0xFff8:367591:SDK:5";
+function makeSwapResponseTrxDirectVault(overrides: Record<string, unknown> = {}) {
+  return {
+    sellAsset: "TRON.TRX",
+    sellAmount: "100",
+    buyAsset: "ETH.ETH",
+    buyAmount: "0.00531",
+    routeId: "r1",
+    providers: ["THORCHAIN"],
+    targetAddress: SAMPLE_VAULT,
+    inboundAddress: SAMPLE_VAULT,
+    memo: SAMPLE_MEMO,
+    tx: {
+      to: SAMPLE_VAULT,
+      from: "TUserSourceAddrxxxxxxxxxxxxxxxxxxxx",
+      value: "100000000", // 100 TRX in SUN
+      data: "",           // empty — direct vault transfer, not contract call
+      memo: SAMPLE_MEMO,  // routing instruction → raw_data.data on the tx
+      feeLimit: "30000000",
+    },
+    fees: [
+      { type: "liquidity", amount: "0.05",  asset: "TRON.TRX" },
+      { type: "outbound",  amount: "0.0001", asset: "ETH.ETH" },
+    ],
+    ...overrides,
+  };
+}
+
 // Fixture for /swap response (TRC-20 USDT path — includes approvalTx).
 function makeSwapResponseUsdt(overrides: Record<string, unknown> = {}) {
   return {
@@ -362,6 +395,43 @@ describe("SwapDKBridgeTron", () => {
 
       const quoteBody = JSON.parse(fetchSpy.mock.calls[0][1].body);
       expect(quoteBody.includeTx).toBe(true);
+    });
+  });
+
+  // -- bridge (native TRX, direct-vault deposit) ----------------------------
+  //
+  // Transitional THORChain state mid-2026: TRON pool unhalted for
+  // trading but router contract missing from inbound_addresses.
+  // swap-engine emits a SwapTx with `data: ""` and `memo` set; the
+  // bridge module must thread `memo` through to the wallet so it
+  // builds a TransferContract (with memo embedded in raw_data.data)
+  // rather than a TriggerSmartContract.
+  describe("bridge — native TRX, direct-vault path", () => {
+    it("forwards tx.memo to wallet.sendTransaction and omits data", async () => {
+      stubFetchResponses(makeQuoteResponse(), makeSwapResponseTrxDirectVault());
+
+      const result = await bridge.bridge({
+        targetChain: "ethereum",
+        tokenOut: "ETH.ETH",
+        amount: 100_000_000n,
+        recipient: "0xFff8",
+      });
+
+      expect(account.sendTransaction).toHaveBeenCalledOnce();
+      const txArgs = account.sendTransaction.mock.calls[0][0];
+
+      // Vault, not router.
+      expect(txArgs.to).toBe(SAMPLE_VAULT);
+      // Full sellAmount as the TransferContract value (callValue
+      // semantics don't apply — this is a plain TRX transfer).
+      expect(txArgs.value).toBe(100_000_000n);
+      // Empty calldata, memo carries the routing instruction.
+      expect(txArgs.data).toBe("");
+      expect(txArgs.memo).toBe(SAMPLE_MEMO);
+      // feeLimit still surfaced (wallet may use it for the SUN cap).
+      expect(txArgs.feeLimit).toBe(30_000_000n);
+
+      expect(result.hash).toBe("TRONTXHASH123");
     });
   });
 

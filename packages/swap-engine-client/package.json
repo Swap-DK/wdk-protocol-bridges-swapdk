@@ -1,6 +1,6 @@
 {
   "name": "@swapdk/swap-engine-client",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Shared HTTP client + zod-validated schemas for the SwapDK swap-engine API. Consumed by every SwapDK distribution channel — WDK protocol bridges and WagmiDK.",
   "type": "module",
   "main": "dist/index.js",

@@ -186,7 +186,18 @@ export class SwapDKBridgeTron extends BridgeProtocol {
       }
     }
 
-    // 5. Send the bridge / swap transaction (router.depositWithExpiry).
+    // 5. Send the bridge / swap transaction.
+    //
+    // Two shapes the swap-engine may emit for TRON:
+    //   - Router path (default): tx.data is the depositWithExpiry
+    //     calldata, tx.to is the router contract, tx.memo is empty.
+    //   - Direct-vault path: tx.memo is the THORChain routing string,
+    //     tx.data is empty, tx.to is the vault address. Used when
+    //     THORChain has the chain unhalted but no router deployed
+    //     (see swap-engine f06e3d5).
+    //
+    // The wallet's sendTransaction dispatches on which of {data, memo}
+    // is set — we just pass both through verbatim.
     const tx = swapRes.tx;
     if (!tx) {
       throw new SwapDKUserError(
@@ -200,6 +211,7 @@ export class SwapDKBridgeTron extends BridgeProtocol {
       value: tx.value ? BigInt(tx.value) : 0n,
       data: tx.data,
       feeLimit: tx.feeLimit ? BigInt(tx.feeLimit) : undefined,
+      memo: tx.memo,
     });
 
     // 6. Build result. For TRON, `fee` is the SUN cap the wallet
