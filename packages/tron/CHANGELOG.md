@@ -1,5 +1,62 @@
 # @swapdk/wdk-protocol-bridge-swapdk-tron
 
+## 0.3.0
+
+### Major Changes
+
+- Retire `@swapdk/wdk-wallet-tron` peer; adopt upstream `@tetherto/wdk-wallet-tron@^1.0.0-beta.8` via its new prebuilt-tx path.
+
+  Upstream `@tetherto/wdk-wallet-tron@1.0.0-beta.8` refactored `sendTransaction` to accept a prebuilt tronweb `Transaction` (detected via `!!tx.txID`) and sign+broadcast it verbatim. That covers the raw-calldata and TransferContract-with-memo shapes the SwapDK fork carried, so the fork is no longer feature-necessary. Adopting upstream removes a maintenance burden and lets consumers install the bridge from npm without a git-source wallet package.
+
+  **Breaking peer-dep swap.**
+
+  ```diff
+   "peerDependencies": {
+  -  "@swapdk/wdk-wallet-tron": "^0.2.0",
+  -  "@tetherto/wdk-wallet": "^1.0.0-beta.7"
+  +  "@tetherto/wdk-wallet-tron": "^1.0.0-beta.8",
+  +  "@tetherto/wdk-wallet": "^1.0.0-beta.8"
+   }
+  ```
+
+  **New required config field: `tronWeb`.** The bridge now constructs the tronweb `Transaction` itself (router-contract call via `triggerSmartContract`, direct-vault deposit via `sendTrx` + `addUpdateData`) and hands the prebuilt tx to `wallet.sendTransaction`. The bridge needs the tronweb instance to do this; consumers must supply it in the config.
+
+  ```ts
+  import { TronWeb } from "tronweb";
+  import { SwapDKBridgeTron } from "@swapdk/wdk-protocol-bridge-swapdk-tron";
+
+  const tronWeb = new TronWeb({ fullHost: TRON_RPC });
+  const bridge = new SwapDKBridgeTron(walletAccount, {
+    apiUrl: "https://api.swapdk.com",
+    apiKey: process.env.SWAPDK_API_KEY,
+    tronWeb, // NEW — same instance passed to WalletManagerTron
+  });
+  ```
+
+  Pass the SAME tronweb instance you gave `WalletManagerTron` — the bridge only reads from it (address encoding, `feeLimit` fallback, `transactionBuilder`), no key material is exchanged.
+
+  **What the bridge now does internally:**
+
+  - Router path (`SwapTx.data` non-empty): `triggerSmartContract(to, "", { feeLimit, callValue, input: data }, [], issuerHex)` builds a `TriggerSmartContract` with raw calldata as `options.input`. This is the same code path tronweb uses when `functionSelector` is empty.
+  - Direct-vault path (`SwapTx.data` empty, `SwapTx.memo` set): `sendTrx(to, value, from)` builds the base `TransferContract`, then `addUpdateData(tx, memo, "utf8")` mutates `raw_data.data` AND recomputes `txID` — the memo is part of the tx hash preimage, so it MUST be attached before signing.
+  - Neither `data` nor `memo`: throws `SwapDKUserError` describing an unusable `SwapTx` (previously the wallet fork threw the same message; now the bridge does).
+
+  **Wallet interface changed.** `TronWalletAccount.sendTransaction` now takes a single `TronPrebuiltTransaction` argument (opaque `{ txID: string, ...tronwebFields }`) and returns `{ hash, fee, activationFee? }`. The old `{ to, value, data, feeLimit, memo }` shape is retired.
+
+  **Known regressions in upstream vs. the fork** (tracked in a separate upstream issue/PR — see `docs/upstream-pr/` in the wallets monorepo):
+
+  - No `dispose()` idempotency guard (`_disposed` flag) — a second `dispose()` call throws obscurely via double-`sodium_memzero` on already-null buffers.
+  - `HDKey.wipePrivateData()` from `@scure/bip32` does NOT clear `chainCode` — 32 bytes of derivation material survives in the V8 heap. Upstream doesn't clear it explicitly.
+  - `WalletManager.getAccount` / `getAccountByPath` / `getFeeRates` don't guard against post-`dispose()` calls — derivation from the zeroed seed returns a deterministic, publicly-computable key (AUDIT4-M1).
+
+  Downstream consumers who rely on these guarantees should stay on `@swapdk/wdk-protocol-bridge-swapdk-tron@0.2.0` + `@swapdk/wdk-wallet-tron@0.2.0` until upstream lands the fixes.
+
+  **Migration.** For each `new SwapDKBridgeTron(account, config)` call site:
+
+  1. Install upstream: `npm i @tetherto/wdk-wallet-tron@^1.0.0-beta.8` (replaces `@swapdk/wdk-wallet-tron`).
+  2. Construct a tronweb instance and pass it as `config.tronWeb` (same instance the wallet manager already uses).
+  3. If your code accepted the wallet-account return shape from `sendTransaction`, update to the upstream shape (`{ hash, fee, activationFee? }` — same field names, `activationFee` is optional and typically `0n` for bridge deposits since vault addresses are always activated).
+
 ## 0.2.0
 
 ### Minor Changes

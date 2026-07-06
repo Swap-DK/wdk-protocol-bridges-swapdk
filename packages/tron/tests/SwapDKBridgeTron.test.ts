@@ -57,11 +57,60 @@ function createMockAccount(
   };
 }
 
-const defaultConfig: SwapDKBridgeConfig = {
-  apiUrl: "https://api.swapdk.test",
-  apiKey: "test-key",
-  retries: 0,
-};
+// Structural mock of the tronweb subset the bridge touches (see
+// `TronWebLike` in src/types.ts). Each builder call returns a distinct
+// `txID` so tests can verify the correct prebuilt tx reached
+// `account.sendTransaction`.
+function createMockTronWeb() {
+  return {
+    address: {
+      // Base58 → hex conversion is not exercised in the bridge beyond
+      // being handed to `triggerSmartContract` as the issuer address.
+      // We return a deterministic stub so assertions can pin the exact
+      // value passed through.
+      toHex: vi.fn((addr: string) => "41HEX_" + addr),
+    },
+    feeLimit: 100_000_000,
+    transactionBuilder: {
+      triggerSmartContract: vi.fn(
+        async (
+          contract: string,
+          _selector: string,
+          options: { feeLimit?: number; callValue?: number; input?: string },
+          _params: unknown[],
+          issuer: string,
+        ) => ({
+          transaction: {
+            txID: `PREBUILT_CONTRACT_${contract}`,
+            _contract: contract,
+            _input: options?.input,
+            _callValue: options?.callValue ?? 0,
+            _feeLimit: options?.feeLimit,
+            _issuer: issuer,
+          },
+        }),
+      ),
+      sendTrx: vi.fn(async (to: string, value: number, from: string) => ({
+        txID: "PREBUILT_TRANSFER_BASE",
+        _to: to,
+        _value: value,
+        _from: from,
+      })),
+      addUpdateData: vi.fn(
+        async (tx: Record<string, unknown>, data: string, encoding?: string) => ({
+          ...tx,
+          txID: "PREBUILT_TRANSFER_WITHMEMO",
+          _memo: data,
+          _encoding: encoding,
+        }),
+      ),
+    },
+  };
+}
+
+// Default config is rebuilt in beforeEach so each test gets fresh spies.
+let defaultConfig: SwapDKBridgeConfig;
+let tronWebMock: ReturnType<typeof createMockTronWeb>;
 
 // Fixture for the /quote response. Mirrors the real swap-engine TRON
 // dispatch output: router-contract calldata in tx.data, feeLimit
@@ -187,6 +236,13 @@ describe("SwapDKBridgeTron", () => {
   let fetchSpy: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
+    tronWebMock = createMockTronWeb();
+    defaultConfig = {
+      apiUrl: "https://api.swapdk.test",
+      apiKey: "test-key",
+      retries: 0,
+      tronWeb: tronWebMock,
+    };
     account = createMockAccount();
     bridge = new SwapDKBridgeTron(account, defaultConfig);
     bridge.setSourceChain("tron");
@@ -370,11 +426,28 @@ describe("SwapDKBridgeTron", () => {
       expect(account.sendTransaction).toHaveBeenCalledOnce();
       expect(account.waitForTransaction).not.toHaveBeenCalled();
 
-      const txArgs = account.sendTransaction.mock.calls[0][0];
-      expect(txArgs.to).toBe(SAMPLE_ROUTER);
-      expect(txArgs.value).toBe(100_000_000n); // 100 TRX SUN as callValue
-      expect(txArgs.data).toBe(SAMPLE_TX_DATA);
-      expect(txArgs.feeLimit).toBe(100_000_000n);
+      // Bridge should have driven tronweb.transactionBuilder to build
+      // the router-contract call: raw calldata via `options.input`,
+      // callValue = full sell amount (SUN), feeLimit = SwapTx.feeLimit,
+      // issuer = hex-encoded source address.
+      expect(tronWebMock.transactionBuilder.triggerSmartContract)
+        .toHaveBeenCalledOnce();
+      const [contract, selector, options, params, issuer] =
+        tronWebMock.transactionBuilder.triggerSmartContract.mock.calls[0];
+      expect(contract).toBe(SAMPLE_ROUTER);
+      expect(selector).toBe(""); // empty selector = tronweb uses raw options.input
+      expect(options.callValue).toBe(100_000_000); // 100 TRX SUN
+      expect(options.feeLimit).toBe(100_000_000);
+      expect(options.input).toBe(SAMPLE_TX_DATA.replace(/^0x/, ""));
+      expect(params).toEqual([]);
+      expect(issuer).toBe("41HEX_TUserSourceAddrxxxxxxxxxxxxxxxxxxxx");
+
+      // account.sendTransaction receives the prebuilt tx tronweb produced.
+      const prebuilt = account.sendTransaction.mock.calls[0][0];
+      expect(prebuilt.txID).toBe(`PREBUILT_CONTRACT_${SAMPLE_ROUTER}`);
+      // The direct-vault builders must NOT have been touched.
+      expect(tronWebMock.transactionBuilder.sendTrx).not.toHaveBeenCalled();
+      expect(tronWebMock.transactionBuilder.addUpdateData).not.toHaveBeenCalled();
 
       expect(result.hash).toBe("TRONTXHASH123");
       expect(result.fee).toBe(100_000_000n); // wallet returns feeLimit-as-cap
@@ -407,7 +480,7 @@ describe("SwapDKBridgeTron", () => {
   // builds a TransferContract (with memo embedded in raw_data.data)
   // rather than a TriggerSmartContract.
   describe("bridge — native TRX, direct-vault path", () => {
-    it("forwards tx.memo to wallet.sendTransaction and omits data", async () => {
+    it("builds a TransferContract-with-memo tx and hands it to wallet.sendTransaction", async () => {
       stubFetchResponses(makeQuoteResponse(), makeSwapResponseTrxDirectVault());
 
       const result = await bridge.bridge({
@@ -417,19 +490,32 @@ describe("SwapDKBridgeTron", () => {
         recipient: "0xFff8",
       });
 
-      expect(account.sendTransaction).toHaveBeenCalledOnce();
-      const txArgs = account.sendTransaction.mock.calls[0][0];
+      // Bridge should build a TRX transfer to the vault (base58 to,
+      // full sellAmount as SUN, base58 from), then attach the memo as
+      // raw_data.data via addUpdateData(tx, memo, "utf8").
+      expect(tronWebMock.transactionBuilder.sendTrx).toHaveBeenCalledOnce();
+      const [to, value, from] =
+        tronWebMock.transactionBuilder.sendTrx.mock.calls[0];
+      expect(to).toBe(SAMPLE_VAULT);
+      expect(value).toBe(100_000_000); // full sellAmount, not callValue
+      expect(from).toBe("TUserSourceAddrxxxxxxxxxxxxxxxxxxxx"); // base58, not hex
 
-      // Vault, not router.
-      expect(txArgs.to).toBe(SAMPLE_VAULT);
-      // Full sellAmount as the TransferContract value (callValue
-      // semantics don't apply — this is a plain TRX transfer).
-      expect(txArgs.value).toBe(100_000_000n);
-      // Empty calldata, memo carries the routing instruction.
-      expect(txArgs.data).toBe("");
-      expect(txArgs.memo).toBe(SAMPLE_MEMO);
-      // feeLimit still surfaced (wallet may use it for the SUN cap).
-      expect(txArgs.feeLimit).toBe(30_000_000n);
+      expect(tronWebMock.transactionBuilder.addUpdateData).toHaveBeenCalledOnce();
+      const [baseTx, memo, encoding] =
+        tronWebMock.transactionBuilder.addUpdateData.mock.calls[0];
+      expect(baseTx.txID).toBe("PREBUILT_TRANSFER_BASE");
+      expect(memo).toBe(SAMPLE_MEMO);
+      expect(encoding).toBe("utf8");
+
+      // The router builder must NOT have fired for a direct-vault route.
+      expect(tronWebMock.transactionBuilder.triggerSmartContract)
+        .not.toHaveBeenCalled();
+
+      // account.sendTransaction receives the memo-carrying tx (fresh txID).
+      expect(account.sendTransaction).toHaveBeenCalledOnce();
+      const prebuilt = account.sendTransaction.mock.calls[0][0];
+      expect(prebuilt.txID).toBe("PREBUILT_TRANSFER_WITHMEMO");
+      expect(prebuilt._memo).toBe(SAMPLE_MEMO);
 
       expect(result.hash).toBe("TRONTXHASH123");
     });
@@ -463,12 +549,21 @@ describe("SwapDKBridgeTron", () => {
       // Two wallet broadcasts: approve, then bridge.
       expect(account.sendTransaction).toHaveBeenCalledTimes(2);
 
-      // First call = approval to USDT contract, no callValue, approve calldata.
-      const approveArgs = account.sendTransaction.mock.calls[0][0];
-      expect(approveArgs.to).toBe(SAMPLE_USDT_CONTRACT);
-      expect(approveArgs.value).toBe(0n);
-      expect(approveArgs.data).toBe(SAMPLE_APPROVE_DATA);
-      expect(approveArgs.feeLimit).toBe(100_000_000n);
+      // Two triggerSmartContract calls (approve + bridge), no direct-vault path.
+      expect(tronWebMock.transactionBuilder.triggerSmartContract)
+        .toHaveBeenCalledTimes(2);
+      expect(tronWebMock.transactionBuilder.sendTrx).not.toHaveBeenCalled();
+
+      // First call = approval to USDT contract, callValue=0, approve calldata.
+      const [approveContract, , approveOptions] =
+        tronWebMock.transactionBuilder.triggerSmartContract.mock.calls[0];
+      expect(approveContract).toBe(SAMPLE_USDT_CONTRACT);
+      expect(approveOptions.callValue).toBe(0);
+      expect(approveOptions.input).toBe(SAMPLE_APPROVE_DATA.replace(/^0x/, ""));
+      expect(approveOptions.feeLimit).toBe(100_000_000);
+      // account.sendTransaction call #0 = the prebuilt approve tx.
+      expect(account.sendTransaction.mock.calls[0][0].txID)
+        .toBe(`PREBUILT_CONTRACT_${SAMPLE_USDT_CONTRACT}`);
 
       // We wait for the approval to land before sending the bridge tx.
       expect(account.waitForTransaction).toHaveBeenCalledOnce();
@@ -476,11 +571,14 @@ describe("SwapDKBridgeTron", () => {
 
       // Second call = depositWithExpiry on the router, callValue=0
       // (tokens come via the allowance, not callValue), bridge calldata.
-      const bridgeArgs = account.sendTransaction.mock.calls[1][0];
-      expect(bridgeArgs.to).toBe(SAMPLE_ROUTER);
-      expect(bridgeArgs.value).toBe(0n);
-      expect(bridgeArgs.data).toBe(SAMPLE_TX_DATA);
-      expect(bridgeArgs.feeLimit).toBe(150_000_000n);
+      const [bridgeContract, , bridgeOptions] =
+        tronWebMock.transactionBuilder.triggerSmartContract.mock.calls[1];
+      expect(bridgeContract).toBe(SAMPLE_ROUTER);
+      expect(bridgeOptions.callValue).toBe(0);
+      expect(bridgeOptions.input).toBe(SAMPLE_TX_DATA.replace(/^0x/, ""));
+      expect(bridgeOptions.feeLimit).toBe(150_000_000);
+      expect(account.sendTransaction.mock.calls[1][0].txID)
+        .toBe(`PREBUILT_CONTRACT_${SAMPLE_ROUTER}`);
 
       expect(result.hash).toBe("TRONTXHASH123");
       expect(result.approveHash).toBe("TRONTXHASH123");

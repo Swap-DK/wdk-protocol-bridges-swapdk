@@ -6,21 +6,23 @@
 // TRON (native TRX, TRC-20 USDT/USDC) as source to any destination
 // supported by THORChain or MAYAChain.
 //
-// TRON inbound on THORChain uses the same router-contract pattern as
-// EVM (`depositWithExpiry(vault, asset, amount, memo, expiration)`),
-// just with base58 addresses and SUN as the value unit. swap-engine's
-// TRON dispatch (utils/swap_engine.go) returns:
-//   - `tx.to` — base58 router address (tronweb consumes directly)
-//   - `tx.data` — full ABI-encoded calldata (selector + args)
-//   - `tx.value` — callValue (SUN, decimal string)
-//   - `tx.feeLimit` — SUN cap on energy
-//   - `approvalTx` — populated for TRC-20 sells (TRC-20 `approve(router, amount)`)
+// swap-engine's TRON dispatch emits two SwapTx shapes:
+//   1. Router path (default when THORChain has the router contract
+//      deployed): tx.data carries `depositWithExpiry` ABI calldata,
+//      tx.to is the router, tx.feeLimit caps SUN spent on energy.
+//   2. Direct-vault path (fallback when the router isn't deployed —
+//      transitional THORChain state observed mid-2026): tx.memo
+//      carries the routing instruction, tx.data is empty, tx.to is
+//      the inbound vault. The bridge wraps the memo into a
+//      TransferContract via `addUpdateData`.
 //
-// The wallet (`@swapdk/wdk-wallet-tron`) accepts these as
-// `sendTransaction({ to, value, data, feeLimit })` and emits a
-// TriggerSmartContract with the raw calldata. Chainflip routes for
-// TRON source aren't supported in v1 (different deposit-channel model
-// — pending separate research).
+// Wallet peer: `@tetherto/wdk-wallet-tron@^1.0.0-beta.8` — the bridge
+// builds the tronweb Transaction itself (both paths) and hands the
+// prebuilt tx to `wallet.sendTransaction(prebuiltTx)`. Upstream's
+// `_isPrebuiltTransaction(tx) = !!tx.txID` gate accepts the shape.
+//
+// Chainflip routes for TRON source aren't supported in v1 (different
+// deposit-channel model — pending separate research).
 // ---------------------------------------------------------------------------
 
 import { BridgeProtocol } from "@tetherto/wdk-wallet/protocols";
@@ -49,7 +51,9 @@ import type {
 
 import { toSourceAsset, resolveAssetDecimals } from "./asset-map.js";
 import type {
+  TronPrebuiltTransaction,
   TronWalletAccount,
+  TronWebLike,
   SwapDKBridgeConfig,
   SwapDKBridgeOptions,
   SwapDKBridgeQuoteResult,
@@ -83,6 +87,7 @@ export interface WaitForBridgeOptions {
 export class SwapDKBridgeTron extends BridgeProtocol {
   private readonly client: SwapDKClient;
   private readonly tronAccount: TronWalletAccount;
+  private readonly tronWeb: TronWebLike;
   private readonly swapDKConfig: SwapDKBridgeConfig;
   /** WDK source chain this instance was registered for. */
   private sourceChain: string = DEFAULT_SOURCE_CHAIN;
@@ -92,7 +97,15 @@ export class SwapDKBridgeTron extends BridgeProtocol {
     // base class only stores it, never calls it.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     super(account as any, { bridgeMaxFee: config.bridgeMaxFee });
+    if (!config.tronWeb) {
+      throw new SwapDKUserError(
+        "SwapDKBridgeTron requires `tronWeb` in config — pass the same " +
+          "tronweb instance used by WalletManagerTron so the bridge can " +
+          "build router / vault transactions before broadcast.",
+      );
+    }
     this.tronAccount = account;
+    this.tronWeb = config.tronWeb;
     this.swapDKConfig = config;
     this.client = new SwapDKClient(config.apiUrl, config.apiKey, {
       timeoutMs: config.timeoutMs,
@@ -167,18 +180,19 @@ export class SwapDKBridgeTron extends BridgeProtocol {
     // 4. Send TRC-20 approval if needed and wait for confirmation. The
     //    router has to pull `amount` of the TRC-20 from the user, so
     //    the allowance must land on-chain before the deposit tx.
+    //    Approvals are always TriggerSmartContract with raw calldata,
+    //    same shape as the router deposit itself.
+    const sourceAddressHex = this.tronWeb.address.toHex(sourceAddress);
     let approveHash: string | undefined;
     if (swapRes.approvalTx) {
-      const approveResult = await this.tronAccount.sendTransaction({
-        to: swapRes.approvalTx.to,
-        value: swapRes.approvalTx.value
-          ? BigInt(swapRes.approvalTx.value)
-          : 0n,
-        data: swapRes.approvalTx.data,
-        feeLimit: swapRes.approvalTx.feeLimit
-          ? BigInt(swapRes.approvalTx.feeLimit)
-          : undefined,
-      });
+      const approveTx = await this.buildContractCallTx(
+        swapRes.approvalTx.to,
+        swapRes.approvalTx.data,
+        swapRes.approvalTx.value,
+        swapRes.approvalTx.feeLimit,
+        sourceAddressHex,
+      );
+      const approveResult = await this.tronAccount.sendTransaction(approveTx);
       approveHash = approveResult.hash;
 
       if (this.tronAccount.waitForTransaction) {
@@ -186,18 +200,19 @@ export class SwapDKBridgeTron extends BridgeProtocol {
       }
     }
 
-    // 5. Send the bridge / swap transaction.
+    // 5. Send the bridge / swap transaction. Two shapes the swap-engine
+    //    may emit for TRON:
+    //      - Router path (default): tx.data carries depositWithExpiry
+    //        calldata, tx.to is the router contract, tx.memo is empty.
+    //      - Direct-vault path: tx.memo carries the routing string,
+    //        tx.data is empty, tx.to is the inbound vault (used when
+    //        THORChain has the chain unhalted but no router deployed —
+    //        see swap-engine f06e3d5).
     //
-    // Two shapes the swap-engine may emit for TRON:
-    //   - Router path (default): tx.data is the depositWithExpiry
-    //     calldata, tx.to is the router contract, tx.memo is empty.
-    //   - Direct-vault path: tx.memo is the THORChain routing string,
-    //     tx.data is empty, tx.to is the vault address. Used when
-    //     THORChain has the chain unhalted but no router deployed
-    //     (see swap-engine f06e3d5).
-    //
-    // The wallet's sendTransaction dispatches on which of {data, memo}
-    // is set — we just pass both through verbatim.
+    //    The bridge builds the tronweb Transaction itself for each
+    //    shape and hands the prebuilt tx to `wallet.sendTransaction`;
+    //    upstream detects the prebuilt shape via `txID` and signs
+    //    without reconstructing.
     const tx = swapRes.tx;
     if (!tx) {
       throw new SwapDKUserError(
@@ -206,13 +221,30 @@ export class SwapDKBridgeTron extends BridgeProtocol {
       );
     }
 
-    const sendResult = await this.tronAccount.sendTransaction({
-      to: tx.to,
-      value: tx.value ? BigInt(tx.value) : 0n,
-      data: tx.data,
-      feeLimit: tx.feeLimit ? BigInt(tx.feeLimit) : undefined,
-      memo: tx.memo,
-    });
+    let prebuilt: TronPrebuiltTransaction;
+    if (tx.data && tx.data !== "") {
+      prebuilt = await this.buildContractCallTx(
+        tx.to,
+        tx.data,
+        tx.value,
+        tx.feeLimit,
+        sourceAddressHex,
+      );
+    } else if (tx.memo && tx.memo !== "") {
+      prebuilt = await this.buildTransferWithMemoTx(
+        tx.to,
+        tx.value,
+        tx.memo,
+        sourceAddress,
+      );
+    } else {
+      throw new SwapDKUserError(
+        "swap-engine returned a TRON SwapTx with neither `data` nor `memo` — " +
+          `cannot dispatch. Providers: ${swapRes.providers.join(", ")}`,
+      );
+    }
+
+    const sendResult = await this.tronAccount.sendTransaction(prebuilt);
 
     // 6. Build result. For TRON, `fee` is the SUN cap the wallet
     //    committed to (the actual energy burn is bounded by feeLimit
@@ -426,5 +458,79 @@ export class SwapDKBridgeTron extends BridgeProtocol {
       sourceChain: this.sourceChain,
       fallbackDecimals: 6,
     });
+  }
+
+  /**
+   * Build a `TriggerSmartContract` transaction carrying raw ABI-encoded
+   * calldata. Used for the THORChain router `depositWithExpiry` deposit
+   * AND for TRC-20 `approve(router, amount)` allowances.
+   *
+   * tronweb's `triggerSmartContract` accepts `options.input` as the
+   * full hex calldata when `functionSelector` is empty; see
+   * `TransactionBuilder._getTriggerSmartContractArgs` in tronweb@6.2.0
+   * (`else if (options.input) args.data = options.input;`). No new
+   * tronweb code path — we're just exposing an existing internal one
+   * without relying on the retired `@swapdk/wdk-wallet-tron` shim.
+   */
+  private async buildContractCallTx(
+    to: string,
+    data: string | undefined,
+    value: string | undefined,
+    feeLimit: string | undefined,
+    ownerHex: string,
+  ): Promise<TronPrebuiltTransaction> {
+    if (!data) {
+      throw new SwapDKUserError(
+        "buildContractCallTx: `data` (ABI calldata) is required",
+      );
+    }
+    const inputHex = String(data).replace(/^0x/, "");
+    const callValue = value !== undefined && value !== "" ? Number(value) : 0;
+    const energyCap =
+      feeLimit !== undefined && feeLimit !== ""
+        ? Number(feeLimit)
+        : this.tronWeb.feeLimit;
+
+    const { transaction } = await this.tronWeb.transactionBuilder.triggerSmartContract(
+      to,
+      "", // functionSelector empty → options.input is the raw calldata
+      {
+        feeLimit: energyCap,
+        callValue,
+        input: inputHex,
+      },
+      [],
+      ownerHex,
+    );
+    return transaction;
+  }
+
+  /**
+   * Build a `TransferContract` with the THORChain routing memo attached
+   * via `raw_data.data`. Used for the direct-vault deposit path when
+   * THORChain has the chain unhalted but no router contract deployed
+   * (transitional state observed mid-2026 — see swap-engine f06e3d5).
+   *
+   * `addUpdateData` mutates `raw_data.data` AND recomputes `txID`,
+   * because the memo is part of the tx hash preimage. This MUST happen
+   * before the wallet signs — the signature covers the txID.
+   */
+  private async buildTransferWithMemoTx(
+    to: string,
+    value: string | undefined,
+    memo: string,
+    ownerAddress: string,
+  ): Promise<TronPrebuiltTransaction> {
+    const sun = value !== undefined && value !== "" ? Number(value) : 0;
+    const transferTx = await this.tronWeb.transactionBuilder.sendTrx(
+      to,
+      sun,
+      ownerAddress,
+    );
+    return await this.tronWeb.transactionBuilder.addUpdateData(
+      transferTx,
+      memo,
+      "utf8",
+    );
   }
 }
