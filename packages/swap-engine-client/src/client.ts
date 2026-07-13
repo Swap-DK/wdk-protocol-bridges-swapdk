@@ -17,6 +17,8 @@ import {
   BrokerChannelResponseSchema,
   QuoteResponseSchema,
   SwapResponseSchema,
+  SwidgeChainsResponseSchema,
+  SwidgeTokensResponseSchema,
   TrackResponseSchema,
 } from "./http-schemas.js";
 import type {
@@ -26,6 +28,9 @@ import type {
   QuoteResponse,
   SwapRequest,
   SwapResponse,
+  SwidgeChainsResponse,
+  SwidgeTokensQuery,
+  SwidgeTokensResponse,
   TrackRequest,
   TrackResponse,
 } from "./http-schemas.js";
@@ -89,6 +94,34 @@ export class SwapDKClient {
   }
 
   /**
+   * List the currently discoverable swidge chains — union across
+   * THORChain / MAYAChain / Chainflip, with paused chains removed
+   * according to the backend's conservative halt filter (chain drops
+   * only when every provider that could route it has paused it).
+   */
+  async getSwidgeChains(): Promise<SwidgeChainsResponse> {
+    return this.get("/chains", SwidgeChainsResponseSchema);
+  }
+
+  /**
+   * List the currently discoverable swidge tokens, optionally filtered
+   * by source / destination chain. Fungible tokens carry an EIP-55
+   * checksummed (EVM) or base58 (TRON / Solana) contract address in
+   * both the `token` and `address` fields; native gas coins carry the
+   * upper-case ticker in `token` with `address` omitted.
+   */
+  async getSwidgeTokens(
+    opts: SwidgeTokensQuery = {},
+  ): Promise<SwidgeTokensResponse> {
+    const params: Record<string, string> = { shape: "swidge" };
+    if (opts.fromChain) params.fromChain = opts.fromChain;
+    if (opts.fromToken) params.fromToken = opts.fromToken;
+    if (opts.toChain) params.toChain = opts.toChain;
+    const query = new URLSearchParams(params).toString();
+    return this.get(`/tokens?${query}`, SwidgeTokensResponseSchema);
+  }
+
+  /**
    * Open a Chainflip deposit channel for a swap intent.
    *
    * Returns the deposit address + composite channel identifier the
@@ -115,6 +148,10 @@ export class SwapDKClient {
     schema: z.ZodType<T>,
   ): Promise<T> {
     return this.request<T>("POST", path, body, schema);
+  }
+
+  private get<T>(path: string, schema: z.ZodType<T>): Promise<T> {
+    return this.request<T>("GET", path, undefined, schema);
   }
 
   /**

@@ -350,3 +350,70 @@ export const BrokerChannelResponseSchema = z.object({
   error: z.string(),
 });
 export type BrokerChannelResponse = z.infer<typeof BrokerChannelResponseSchema>;
+
+// ---------------------------------------------------------------------------
+// /chains + /tokens?shape=swidge — swidge-native discovery
+// ---------------------------------------------------------------------------
+
+/**
+ * A chain entry returned by `GET /chains`. The shape mirrors the
+ * `SwidgeSupportedChain` typedef in `@tetherto/wdk-wallet/protocols`
+ * so downstream swidge modules can return this value unchanged.
+ *
+ * Swap-engine aggregates the union of chains supported across
+ * THORChain / MAYAChain / Chainflip and drops chains that are
+ * paused at every provider that would otherwise route them.
+ */
+export const SwidgeSupportedChainSchema = z.object({
+  /** Swidge chain identifier (lowercase, e.g. "ethereum", "bitcoin", "tron"). */
+  id: z.string(),
+  /** Human-readable chain name. */
+  name: z.string(),
+  /** Chain family: "evm" | "bitcoin" | "cosmos" | "tron" | "solana" | "other". */
+  type: z.string(),
+  /** Ticker of the native gas asset ("ETH", "BTC", "TRX", …). */
+  nativeToken: z.string(),
+});
+export type SwidgeSupportedChain = z.infer<typeof SwidgeSupportedChainSchema>;
+
+export const SwidgeChainsResponseSchema = z.array(SwidgeSupportedChainSchema);
+export type SwidgeChainsResponse = z.infer<typeof SwidgeChainsResponseSchema>;
+
+/**
+ * A token entry returned by `GET /tokens?shape=swidge`. Shape mirrors
+ * `SwidgeSupportedToken` in the swidge protocol interface.
+ *
+ * `token` is the contract address (EIP-55 checksummed for EVM, base58
+ * or base58check for TRON / Solana) for fungible tokens, or the
+ * upper-case ticker for native gas coins. `chain` is the swidge chain
+ * id (matches `SwidgeSupportedChain.id`).
+ */
+export const SwidgeSupportedTokenSchema = z.object({
+  token: z.string(),
+  chain: z.string(),
+  symbol: z.string(),
+  decimals: z.number(),
+  address: z.string().optional(),
+  name: z.string().optional(),
+});
+export type SwidgeSupportedToken = z.infer<typeof SwidgeSupportedTokenSchema>;
+
+export const SwidgeTokensResponseSchema = z.array(SwidgeSupportedTokenSchema);
+export type SwidgeTokensResponse = z.infer<typeof SwidgeTokensResponseSchema>;
+
+/**
+ * Optional filters for `GET /tokens?shape=swidge`. Empty / undefined
+ * fields disable the corresponding filter.
+ */
+export interface SwidgeTokensQuery {
+  /** Restrict to tokens on this chain (swidge chain id). */
+  fromChain?: string;
+  /**
+   * Reserved for future route-scoped discovery. Currently accepted by
+   * the backend but ignored — see swap-engine's
+   * `internal/swidgediscovery/tokens.go` for the rationale.
+   */
+  fromToken?: string;
+  /** Restrict to tokens on this destination chain (swidge chain id). */
+  toChain?: string;
+}

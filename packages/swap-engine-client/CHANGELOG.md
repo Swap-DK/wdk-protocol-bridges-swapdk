@@ -1,5 +1,21 @@
 # @swapdk/swap-engine-client
 
+## 0.3.0
+
+### Minor Changes
+
+- `SwapDKClient.getSwidgeChains()` — new. GET `/chains`, returns the swidge-native `SwidgeSupportedChain[]` aggregated across THORChain / MAYAChain / Chainflip.
+
+- `SwapDKClient.getSwidgeTokens(opts?)` — new. GET `/tokens?shape=swidge[&fromChain=X][&fromToken=Y][&toChain=Z]`, returns `SwidgeSupportedToken[]`. Chain-qualified `{ token, chain, symbol, decimals, address?, name? }` shape; the legacy SwapKit-shaped `/tokens` (without `?shape=swidge`) is unchanged and remains the default.
+
+- Response schemas + type aliases: `SwidgeSupportedChainSchema` / `SwidgeSupportedChain`, `SwidgeSupportedTokenSchema` / `SwidgeSupportedToken`, `SwidgeChainsResponseSchema` / `SwidgeChainsResponse`, `SwidgeTokensResponseSchema` / `SwidgeTokensResponse`, `SwidgeTokensQuery`. Re-exported from the package index so downstream swidge modules (see `@swapdk/wdk-protocol-swidge-swapdk`) can validate their own callers with the same schemas.
+
+- Private `get<T>()` helper added to `SwapDKClient` for GET-shaped endpoints. `post<T>()` and the retry / zod-parse plumbing are unchanged.
+
+Additive across the board — no existing consumer is affected. The new endpoints are only hit when downstream calls `getSwidgeChains()` / `getSwidgeTokens()` explicitly.
+
+**Rationale.** Adding these methods on the shared client (rather than reimplementing HTTP in the swidge module) keeps every SwapDK distribution channel — the WDK protocol bridges here plus WagmiDK — on the same wire contract and gets zod validation of the discovery responses for free.
+
 ## 0.2.1
 
 ### Patch Changes

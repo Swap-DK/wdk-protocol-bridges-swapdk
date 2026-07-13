@@ -35,6 +35,10 @@ export {
   BrokerChannelDCAParametersSchema,
   BrokerChannelMetadataSchema,
   BrokerChannelAffiliateFeeSchema,
+  SwidgeSupportedChainSchema,
+  SwidgeSupportedTokenSchema,
+  SwidgeChainsResponseSchema,
+  SwidgeTokensResponseSchema,
 } from "./http-schemas.js";
 
 export type {
@@ -55,6 +59,11 @@ export type {
   BrokerChannelDCAParameters,
   BrokerChannelMetadata,
   BrokerChannelAffiliateFee,
+  SwidgeSupportedChain,
+  SwidgeSupportedToken,
+  SwidgeChainsResponse,
+  SwidgeTokensResponse,
+  SwidgeTokensQuery,
 } from "./http-schemas.js";
 
 export {

@@ -1,0 +1,64 @@
+{
+  "name": "@swapdk/wdk-protocol-swidge-swapdk",
+  "version": "1.0.0-alpha.0",
+  "description": "WDK swidge protocol module for arbitrary-asset cross-chain swaps and bridges via the SwapDK swap-engine (THORChain, MAYAChain, Chainflip). Single class covering Bitcoin, EVM, Cosmos-family, Solana, and TRON source chains.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "clean": "rm -rf dist tsconfig.tsbuildinfo",
+    "build": "tsc -b",
+    "prepack": "npm run clean && npm run build",
+    "dev": "tsc -b --watch",
+    "lint": "tsc -b --dry"
+  },
+  "keywords": [
+    "wdk",
+    "tether",
+    "swapdk",
+    "swidge",
+    "cross-chain",
+    "bridge",
+    "swap",
+    "thorchain",
+    "mayachain",
+    "chainflip"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Swap-DK/wdk-protocol-bridges-swapdk.git",
+    "directory": "packages/swidge"
+  },
+  "author": "SwapDK",
+  "bugs": {
+    "url": "https://github.com/Swap-DK/wdk-protocol-bridges-swapdk/issues"
+  },
+  "homepage": "https://swapdk.com",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@solana-program/memo": "^0.11.0",
+    "@solana-program/system": "^0.12.0",
+    "@solana/addresses": "^6.8.0",
+    "@solana/signers": "^6.8.0",
+    "@solana/transaction-messages": "^6.8.0",
+    "@swapdk/swap-engine-client": "^0.3.0"
+  },
+  "peerDependencies": {
+    "@tetherto/wdk-wallet": "1.0.0-beta.11"
+  },
+  "devDependencies": {
+    "@tetherto/wdk-wallet": "1.0.0-beta.11"
+  }
+}
