@@ -57,12 +57,12 @@
     "@swapdk/swap-engine-client": "^0.2.0"
   },
   "peerDependencies": {
-    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet": "1.0.0-beta.11",
     "@tetherto/wdk-wallet-solana": "^1.0.0-beta.7"
   },
   "devDependencies": {
     "@tetherto/wdk": "^1.0.0-beta.7",
-    "@tetherto/wdk-wallet": "^1.0.0-beta.7",
+    "@tetherto/wdk-wallet": "1.0.0-beta.11",
     "@tetherto/wdk-wallet-solana": "^1.0.0-beta.7"
   }
 }
