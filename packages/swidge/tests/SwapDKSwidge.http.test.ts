@@ -180,6 +180,44 @@ describe("SwapDKSwidge — HTTP layer", () => {
       expect(body.sellAmount).toBe("0.5");
       expect(body.destinationAddress).toBe("bc1qrecipient");
       expect(body.includeTx).toBe(false);
+      // Slippage translated from swidge decimal (spec: 0.03 = 3%) to
+      // swap-engine basis-points integer (300 = 3%). Server rejects a
+      // decimal payload as `400 invalid request`; this assertion is
+      // the regression guard for that.
+      expect(body.slippage).toBe(300);
+    });
+
+    it("translates SwidgeOptions.slippage (decimal) to swap-engine basis points (integer)", async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse(makeQuoteResp()));
+      const swidge = new SwapDKSwidge(undefined, { apiUrl: API, apiKey: KEY });
+      await swidge.quoteSwidge({
+        fromToken: "ETH",
+        fromChain: "ethereum",
+        toToken: "BTC",
+        toChain: "bitcoin",
+        fromTokenAmount: 500_000_000_000_000_000n,
+        slippage: 0.01, // 1% decimal → 100 bps integer
+      });
+      const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+      expect(body.slippage).toBe(100);
+    });
+
+    it("uses defaultSlippage from config when options omit slippage", async () => {
+      fetchSpy.mockResolvedValueOnce(jsonResponse(makeQuoteResp()));
+      const swidge = new SwapDKSwidge(undefined, {
+        apiUrl: API,
+        apiKey: KEY,
+        defaultSlippage: 0.005, // 0.5% decimal → 50 bps
+      });
+      await swidge.quoteSwidge({
+        fromToken: "ETH",
+        fromChain: "ethereum",
+        toToken: "BTC",
+        toChain: "bitcoin",
+        fromTokenAmount: 500_000_000_000_000_000n,
+      });
+      const body = JSON.parse(fetchSpy.mock.calls[0][1].body);
+      expect(body.slippage).toBe(50);
     });
 
     it("encodes ERC-20 fromToken as CHAIN.T-<address> SwapKit identifier", async () => {

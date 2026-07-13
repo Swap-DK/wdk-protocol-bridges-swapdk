@@ -1,5 +1,9 @@
 # @swapdk/wdk-protocol-bridge-swapdk-solana
 
+> **Legacy interface — new integrations should prefer [`@swapdk/wdk-protocol-swidge-swapdk`](https://www.npmjs.com/package/@swapdk/wdk-protocol-swidge-swapdk).**
+>
+> This package implements the WDK `IBridgeProtocol` interface, which is soft-deprecated in favour of the newer `ISwidgeProtocol` (see the [WDK swidge modules documentation](https://docs.wdk.tether.io/sdk/swidge-modules/)). The swidge module ships a single class covering all five source-chain families — Bitcoin, EVM, Cosmos, Solana, and TRON — with the same Solana dispatch (native SOL transfer + Memo Program instruction) this package implements. Existing consumers remain supported and continue to receive bug fixes, but no new features will be added here.
+
 WDK bridge protocol module for cross-chain swaps with **Solana as source** via [SwapDK](https://swapdk.com). Extends the standard WDK `BridgeProtocol` base class. Native SOL can be bridged to any destination supported by swap-engine (ETH, USDC on EVM chains, BTC, TRON, LTC, DOGE) via THORChain and MAYAChain.
 
 ## How it works

@@ -1,5 +1,9 @@
 # @swapdk/wdk-protocol-bridge-swapdk-cosmos
 
+> **Legacy interface — new integrations should prefer [`@swapdk/wdk-protocol-swidge-swapdk`](https://www.npmjs.com/package/@swapdk/wdk-protocol-swidge-swapdk).**
+>
+> This package implements the WDK `IBridgeProtocol` interface, which is soft-deprecated in favour of the newer `ISwidgeProtocol` (see the [WDK swidge modules documentation](https://docs.wdk.tether.io/sdk/swidge-modules/)). The swidge module ships a single class covering all five source-chain families — Bitcoin, EVM, Cosmos, Solana, and TRON — with the same Cosmos dispatch (`MsgDeposit` for protocol-native routes, `MsgSend` with memo for cross-protocol) this package implements. Existing consumers remain supported and continue to receive bug fixes, but no new features will be added here.
+
 WDK bridge protocol module for cross-chain swaps with **THORChain (RUNE)** or **MAYAChain (CACAO)** as the source asset.
 
 Use it to:

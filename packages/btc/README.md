@@ -1,5 +1,9 @@
 # @swapdk/wdk-protocol-bridge-swapdk-btc
 
+> **Legacy interface — new integrations should prefer [`@swapdk/wdk-protocol-swidge-swapdk`](https://www.npmjs.com/package/@swapdk/wdk-protocol-swidge-swapdk).**
+>
+> This package implements the WDK `IBridgeProtocol` interface, which is soft-deprecated in favour of the newer `ISwidgeProtocol` (see the [WDK swidge modules documentation](https://docs.wdk.tether.io/sdk/swidge-modules/)). The swidge module ships a single class covering all five source-chain families — Bitcoin, EVM, Cosmos, Solana, and TRON — with the same Bitcoin dispatch (THORChain OP_RETURN memo + Chainflip broker channel) this package implements. Existing consumers remain supported and continue to receive bug fixes, but no new features will be added here.
+
 WDK bridge protocol module for cross-chain swaps from **Bitcoin** as source. Pairs with [`@swapdk/wdk-wallet-btc`](https://www.npmjs.com/package/@swapdk/wdk-wallet-btc) (a fork of `@tetherto/wdk-wallet-btc` that adds OP_RETURN memo support) to route BTC → any destination supported by THORChain, MAYAChain, or Chainflip via the SwapDK swap-engine.
 
 ## How it works

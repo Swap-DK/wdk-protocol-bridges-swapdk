@@ -1,5 +1,15 @@
 # @swapdk/wdk-protocol-swidge-swapdk
 
+## 1.0.0-alpha.1
+
+### Patch Changes
+
+- **Fix**: `quoteSwidge()` and `swidge()` now translate `SwidgeOptions.slippage` (decimal per the WDK swidge spec, `0.03` = 3%) to the basis-points integer swap-engine's `/quote` endpoint actually accepts (`300` = 3%). In 1.0.0-alpha.0 the decimal was passed through verbatim and the swap-engine rejected every quote with `400 invalid request` unless the caller explicitly omitted `slippage` (letting the server apply its own default).
+
+  Legacy `@swapdk/wdk-protocol-bridge-swapdk-*` packages have been sending bps-integer since day one; this change aligns swidge with them. `SwapDKSwidgeOptions.slippage` and `SwapDKSwidgeConfig.defaultSlippage` remain decimals on the module's public surface.
+
+  Regression guards in `tests/SwapDKSwidge.http.test.ts` (3 new cases) assert the outgoing request body carries `slippage: 300` (from decimal `0.03`), `slippage: 100` (from decimal `0.01`), and `slippage: 50` (from `defaultSlippage: 0.005`). Verified end-to-end against `api.swapdk.com` — quote returns 200 with a real THORChain route.
+
 ## 1.0.0-alpha.0
 
 ### Initial release

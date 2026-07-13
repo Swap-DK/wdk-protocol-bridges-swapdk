@@ -1,19 +1,34 @@
-# SwapDK WDK protocol bridges
+# SwapDK WDK protocol bridges + swidge
 
-Monorepo for [SwapDK](https://swapdk.com) WDK protocol bridge modules.
+Monorepo for [SwapDK](https://swapdk.com) WDK protocol modules. Ships the new [`@swapdk/wdk-protocol-swidge-swapdk`](./packages/swidge) — a single-class implementation of the WDK [swidge interface](https://docs.wdk.tether.io/sdk/swidge-modules/) covering all five source-chain families — alongside the original per-source-chain bridge packages under `IBridgeProtocol` / `ISwapProtocol`.
 
-Each bridge package under `packages/` is published to npm independently. The shared HTTP client, error hierarchy, asset utilities, and zod-validated wire schemas live in [`@swapdk/swap-engine-client`](./packages/swap-engine-client) — a first-class package consumed by both SwapDK distribution channels (the WDK bridges in this monorepo, and the wagmi-native `@swapdk/wagmidk`).
+Each package under `packages/` is published to npm independently. The shared HTTP client, error hierarchy, asset utilities, and zod-validated wire schemas live in [`@swapdk/swap-engine-client`](./packages/swap-engine-client) — a first-class package consumed by both SwapDK distribution channels (the WDK modules in this monorepo, and the wagmi-native `@swapdk/wagmidk`).
 
 ## Packages
 
-| Package | Source chain(s) | Latest version |
+**Swidge module (preferred for new integrations):**
+
+| Package | Interface | Source chains | Latest version |
+|---|---|---|---|
+| [`@swapdk/wdk-protocol-swidge-swapdk`](./packages/swidge) | `ISwidgeProtocol` | Bitcoin, EVM, Cosmos, Solana, TRON (single class) | 1.0.0-alpha.1 |
+
+**Legacy bridge modules (still supported, no new features):**
+
+| Package | Interface | Source chain(s) | Latest version |
+|---|---|---|---|
+| [`@swapdk/wdk-protocol-bridge-swapdk-evm`](./packages/evm) | `IBridgeProtocol` + `ISwapProtocol` | Ethereum, Arbitrum, Base, BSC, Avalanche, Optimism, Polygon | 1.1.1 |
+| [`@swapdk/wdk-protocol-bridge-swapdk-solana`](./packages/solana) | `IBridgeProtocol` | Solana (native SOL) | 0.2.1 |
+| [`@swapdk/wdk-protocol-bridge-swapdk-cosmos`](./packages/cosmos) | `IBridgeProtocol` | THORChain (RUNE), MAYAChain (CACAO) | 0.2.1 |
+| [`@swapdk/wdk-protocol-bridge-swapdk-btc`](./packages/btc) | `IBridgeProtocol` | Bitcoin (THORChain memo + Chainflip broker channel) | 0.2.2 |
+| [`@swapdk/wdk-protocol-bridge-swapdk-tron`](./packages/tron) | `IBridgeProtocol` | TRON (TRX + TRC-20 USDT) | 0.3.0 |
+
+**Shared infrastructure:**
+
+| Package | Purpose | Latest version |
 |---|---|---|
-| [`@swapdk/swap-engine-client`](./packages/swap-engine-client) | — (shared infra) | 0.2.0 |
-| [`@swapdk/wdk-protocol-bridge-swapdk-evm`](./packages/evm) | Ethereum, Arbitrum, Base, BSC, Avalanche, Optimism, Polygon | 1.1.1 |
-| [`@swapdk/wdk-protocol-bridge-swapdk-solana`](./packages/solana) | Solana (native SOL) | 0.2.1 |
-| [`@swapdk/wdk-protocol-bridge-swapdk-cosmos`](./packages/cosmos) | THORChain (RUNE), MAYAChain (CACAO) | 0.2.1 |
-| [`@swapdk/wdk-protocol-bridge-swapdk-btc`](./packages/btc) | Bitcoin (native BTC + Chainflip / THORChain dispatch) | 0.2.2 |
-| [`@swapdk/wdk-protocol-bridge-swapdk-tron`](./packages/tron) | TRON (TRX + TRC-20 USDT) | 0.1.1 |
+| [`@swapdk/swap-engine-client`](./packages/swap-engine-client) | HTTP client + zod schemas + errors + asset utils; consumed by every SwapDK distribution channel | 0.3.0 |
+
+The swidge module is the direction the WDK ecosystem is moving in — [`docs.wdk.tether.io/sdk/swidge-modules`](https://docs.wdk.tether.io/sdk/swidge-modules/) documents the shared interface. Existing consumers of the legacy bridge modules can keep using them (bug fixes will land), and the `SwidgeProtocol` base class ships legacy compatibility shims — `bridge/quoteBridge/swap/quoteSwap` still work on the swidge module because the base class delegates to `swidge/quoteSwidge`.
 
 Specific per-package status (validation stage, in-flight items, blocked) is in [`STATUS.md`](./STATUS.md).
 
@@ -24,14 +39,14 @@ Each package's README has the user-facing documentation. The repository-level do
 ```
 wdk-protocol-bridges-swapdk/
 ├── packages/
+│   ├── swidge/               # Unified swidge module — ISwidgeProtocol, 5 source families in one class
 │   ├── swap-engine-client/   # Shared HTTP client + zod schemas, error types, asset utils, token registry
-│   ├── evm/                  # EVM source bridge + same-chain swap
-│   ├── solana/               # Solana source bridge (native SOL)
-│   ├── cosmos/               # THORChain / MAYAChain source bridge (MsgDeposit)
-│   ├── btc/                  # Bitcoin source bridge (OP_RETURN memo + Chainflip channel)
-│   └── tron/                 # TRON source bridge (router contract, TRX + TRC-20)
+│   ├── evm/                  # Legacy EVM source bridge + same-chain swap
+│   ├── solana/               # Legacy Solana source bridge (native SOL)
+│   ├── cosmos/               # Legacy THORChain / MAYAChain source bridge (MsgDeposit)
+│   ├── btc/                  # Legacy Bitcoin source bridge (OP_RETURN memo + Chainflip channel)
+│   └── tron/                 # Legacy TRON source bridge (router contract, TRX + TRC-20)
 ├── docs/                     # Research notes (BTC source, Solana source, etc.)
-├── examples/                 # End-to-end WDK app scaffolds per source chain
 └── package.json              # Workspaces config
 ```
 
@@ -60,6 +75,7 @@ Per-package, manually, after a clean `npm install` + `npm run build` + `npm test
 
 ```bash
 npm publish -w @swapdk/swap-engine-client                --access public
+npm publish -w @swapdk/wdk-protocol-swidge-swapdk        --access public
 npm publish -w @swapdk/wdk-protocol-bridge-swapdk-evm    --access public
 npm publish -w @swapdk/wdk-protocol-bridge-swapdk-solana --access public
 npm publish -w @swapdk/wdk-protocol-bridge-swapdk-cosmos --access public

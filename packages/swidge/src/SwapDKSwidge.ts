@@ -189,7 +189,7 @@ export class SwapDKSwidge extends SwidgeProtocol {
       sellAsset: sourceAsset,
       buyAsset: destinationAsset,
       sellAmount: fromAmount,
-      slippage: this.resolveSlippagePct(options),
+      slippage: this.resolveSlippageBps(options),
       sourceAddress: options.refundAddress,
       destinationAddress: options.recipient,
       includeTx: false,
@@ -238,7 +238,7 @@ export class SwapDKSwidge extends SwidgeProtocol {
           sellAsset: sourceAsset,
           buyAsset: destinationAsset,
           sellAmount: fromAmount,
-          slippage: this.resolveSlippagePct(options),
+          slippage: this.resolveSlippageBps(options),
           sourceAddress,
           destinationAddress: options.recipient,
           includeTx: true,
@@ -273,7 +273,7 @@ export class SwapDKSwidge extends SwidgeProtocol {
                 sellAsset: sourceAsset,
                 buyAsset: destinationAsset,
                 sellAmount: fromAmount,
-                slippage: this.resolveSlippagePct(options),
+                slippage: this.resolveSlippageBps(options),
                 sourceAddress,
                 destinationAddress: options.recipient,
                 includeTx: true,
@@ -439,11 +439,17 @@ export class SwapDKSwidge extends SwidgeProtocol {
     return { fromChain, toChain, sourceAsset, destinationAsset, fromAmount };
   }
 
-  private resolveSlippagePct(options: SwapDKSwidgeOptions): number {
-    // /quote takes slippage as a fraction of 1 (0.03 = 3%). Matches the
-    // swidge `slippage` field convention, so pass through when set.
-    if (typeof options.slippage === "number") return options.slippage;
-    return this.swidgeConfig.defaultSlippage ?? 0.03;
+  private resolveSlippageBps(options: SwapDKSwidgeOptions): number {
+    // WDK swidge convention: SwidgeOptions.slippage is a DECIMAL
+    // (0.03 = 3%). Swap-engine's /quote takes slippage as an integer
+    // number of BASIS POINTS (300 = 3%). Translate at the HTTP
+    // boundary — a decimal payload here surfaces as `400 invalid
+    // request` on the server.
+    const decimal =
+      typeof options.slippage === "number"
+        ? options.slippage
+        : this.swidgeConfig.defaultSlippage ?? 0.03;
+    return Math.round(decimal * 10_000);
   }
 
   private decimalsForToken(swidgeChain: string, token: string): number {

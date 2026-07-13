@@ -1,5 +1,9 @@
 # @swapdk/wdk-protocol-bridge-swapdk-evm
 
+> **Legacy interface — new integrations should prefer [`@swapdk/wdk-protocol-swidge-swapdk`](https://www.npmjs.com/package/@swapdk/wdk-protocol-swidge-swapdk).**
+>
+> This package implements the WDK `IBridgeProtocol` + `ISwapProtocol` interfaces, which are soft-deprecated in favour of the newer `ISwidgeProtocol` (see the [WDK swidge modules documentation](https://docs.wdk.tether.io/sdk/swidge-modules/)). The swidge module ships a single class covering all five source-chain families — Bitcoin, EVM, Cosmos, Solana, and TRON — with the same EVM dispatch (router-contract call + optional ERC-20 approve) this package implements. Existing consumers remain supported and continue to receive bug fixes, but no new features will be added here.
+
 WDK protocol module for cross-chain and same-chain swaps via [SwapDK](https://swapdk.com). Extends the standard WDK `BridgeProtocol` and `SwapProtocol` base classes. Supports swaps from EVM source chains to any destination (BTC, TRON, other EVM) via THORChain, MAYAChain, and Chainflip, and same-chain DEX swaps (e.g. USDC → WETH on Ethereum).
 
 ## How it works
