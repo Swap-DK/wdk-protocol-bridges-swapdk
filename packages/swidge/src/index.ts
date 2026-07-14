@@ -25,7 +25,8 @@ export type {
 // Per-source-chain adapter account interfaces. Consumers use these to
 // type-check the wallet they pass to `new SwapDKSwidge(account, config)`.
 // The adapter functions + registry themselves are not part of the public
-// surface (v1.0.0-alpha).
+// surface — extension via custom adapters is a non-goal for now; consumers
+// with genuine needs there should open an issue.
 export type {
   SwidgeBtcAccount,
   SwidgeCosmosAccount,

@@ -2,7 +2,7 @@
 
 WDK swidge protocol module for arbitrary-asset cross-chain swaps and bridges via the [SwapDK swap-engine](https://swapdk.com) (routing through THORChain, MAYAChain, and Chainflip). Single class covering Bitcoin, EVM, Cosmos-family, Solana, and TRON source chains.
 
-> **Version 1.0.0-alpha.0.** API surface is stable enough for early integration, but breaking changes are still possible before 1.0.0.
+> **Version 1.0.0** — stable API surface. See [Known limits](#known-limits) for scope-of-first-release notes (fee caps, `minAmountOut`, Solana SPL) that land in follow-up minor bumps.
 
 ## Install
 
@@ -110,7 +110,7 @@ Extends the base `SwidgeOptions` with `fromChain` (required for multi-family sou
 - `fromTokenAmount` — exact-in amount in base units. Mutually exclusive with `toTokenAmount`.
 - `toTokenAmount` — exact-out. **Not yet supported by the swap-engine**; adapter throws `SwapDKUserError` if passed.
 
-## Known limits (v1.0.0-alpha)
+## Known limits
 
 - **`SwidgeProtocolConfig.maxNetworkFeeBps` / `maxProtocolFeeBps` are accepted but currently no-op.** The module returns fee data on `SwidgeResult.fees` so callers can enforce caps client-side. Server-side enforcement lands in a subsequent release.
 - **`minAmountOut` is accepted but not forwarded to `/quote`.** Use `slippage` to control slippage tolerance until this ships.

@@ -1,6 +1,6 @@
 {
   "name": "@swapdk/wdk-protocol-swidge-swapdk",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0",
   "description": "WDK swidge protocol module for arbitrary-asset cross-chain swaps and bridges via the SwapDK swap-engine (THORChain, MAYAChain, Chainflip). Single class covering Bitcoin, EVM, Cosmos-family, Solana, and TRON source chains.",
   "type": "module",
   "main": "dist/index.js",

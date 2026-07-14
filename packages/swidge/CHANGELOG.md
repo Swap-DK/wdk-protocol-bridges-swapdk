@@ -1,5 +1,20 @@
 # @swapdk/wdk-protocol-swidge-swapdk
 
+## 1.0.0
+
+### First stable release
+
+Same code as `1.0.0-alpha.1`. Bumping the version signals the API surface is stable — `SwapDKSwidge` and its options / result types are the contract downstream consumers can pin against without expecting breaking changes.
+
+The [known limits](./README.md#known-limits) documented on the `1.0.0-alpha.0` initial release still apply; they're scope-of-first-release notes rather than bugs and land as follow-up minor bumps:
+
+- `SwidgeProtocolConfig.maxNetworkFeeBps` / `maxProtocolFeeBps` accepted but not enforced (fees returned on `SwidgeResult.fees` for client-side capping).
+- `SwidgeOptions.minAmountOut` accepted but not forwarded to `/quote` (use `slippage`).
+- Solana source: native SOL only; SPL support is a separate design.
+- `getSupportedTokens.fromToken` filter accepted but currently not narrowing server-side.
+
+End-to-end verified against `api.swapdk.com` mainnet — `getSupportedChains`, `getSupportedTokens`, `quoteSwidge`, and full `swidge()` (Arbitrum ETH → Bitcoin BTC via THORChain) all round-trip cleanly.
+
 ## 1.0.0-alpha.1
 
 ### Patch Changes

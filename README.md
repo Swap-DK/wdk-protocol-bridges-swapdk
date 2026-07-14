@@ -10,7 +10,7 @@ Each package under `packages/` is published to npm independently. The shared HTT
 
 | Package | Interface | Source chains | Latest version |
 |---|---|---|---|
-| [`@swapdk/wdk-protocol-swidge-swapdk`](./packages/swidge) | `ISwidgeProtocol` | Bitcoin, EVM, Cosmos, Solana, TRON (single class) | 1.0.0-alpha.1 |
+| [`@swapdk/wdk-protocol-swidge-swapdk`](./packages/swidge) | `ISwidgeProtocol` | Bitcoin, EVM, Cosmos, Solana, TRON (single class) | 1.0.0 |
 
 **Legacy bridge modules (still supported, no new features):**
 
